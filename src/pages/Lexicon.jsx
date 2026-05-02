@@ -22,11 +22,7 @@ const Lexicon = () => {
   // Share state
   const [shareEntity, setShareEntity] = useState(null);
 
-  useEffect(() => {
-    fetchEntities();
-  }, []);
-
-  const fetchEntities = async () => {
+  async function fetchEntities() {
     setLoading(true);
     const entitiesSelectWithSlug = 'user_id, entity_slug, name, role, location, badge, entity_type, authority_score, image_url, subtitle, bio, sector, company, is_premium, verified_awards_count, awards';
     const entitiesSelectFallback = 'user_id, name, role, location, badge, entity_type, authority_score, image_url, subtitle, bio, sector, company, is_premium, verified_awards_count, awards';
@@ -47,6 +43,10 @@ const Lexicon = () => {
       .from('google_search_sources')
       .select('user_id');
 
+    const { data: cardPhotoRows, error: cardPhotosError } = await supabase
+      .from('user_details')
+      .select('user_id, photo_url');
+
     const { data, error } = entitiesResult;
 
     console.log('Supabase response:', { data, error });
@@ -56,21 +56,34 @@ const Lexicon = () => {
     if (sourcesError) {
       console.error('Supabase source count error:', sourcesError);
     }
+    if (cardPhotosError) {
+      console.error('Supabase card photo error:', cardPhotosError);
+    }
     if (data) {
       const sourceCountByUserId = (sourceRows || []).reduce((counts, row) => {
         counts[row.user_id] = (counts[row.user_id] || 0) + 1;
         return counts;
       }, {});
 
+      const cardPhotoByUserId = (cardPhotoRows || []).reduce((photos, row) => {
+        photos[row.user_id] = row.photo_url || null;
+        return photos;
+      }, {});
+
       setEntities(
         data.map((entity) => ({
           ...entity,
+          card_photo_url: cardPhotoByUserId[entity.user_id] || null,
           source_count: sourceCountByUserId[entity.user_id] || 0,
         }))
       );
     }
     setLoading(false);
-  };
+  }
+
+  useEffect(() => {
+    fetchEntities();
+  }, []);
 
   // Get unique countries from data
   const countries = [...new Set(entities.map((e) => {
@@ -206,7 +219,7 @@ const Lexicon = () => {
                 <EntityCard
                   user_id={entity.user_id}
                   entitySlug={entity.entity_slug}
-                  image={entity.image_url}
+                  image={entity.card_photo_url || entity.image_url}
                   name={entity.name}
                   badge={entity.badge}
                   role={entity.role}

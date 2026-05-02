@@ -6,6 +6,7 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
   const [form, setForm] = useState({ ...profile });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const isDirty = JSON.stringify(form) !== JSON.stringify(profile);
 
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -103,6 +104,14 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
     }
   };
 
+  const handleCancel = () => {
+    if (isDirty && !window.confirm('Discard your unsaved profile changes?')) {
+      return;
+    }
+
+    onCancel();
+  };
+
   return (
     <div className="editable-profile">
       {/* Save/Cancel Bar */}
@@ -112,12 +121,15 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
           </svg>
-          <span>Editing Profile</span>
+          <div className="ep-action-copy">
+            <span>Editing Profile</span>
+            <small>{isDirty ? 'Unsaved changes' : 'All changes saved'}</small>
+          </div>
         </div>
         <div className="ep-action-bar-right">
           {error && <span className="ep-action-error">{error}</span>}
-          <button className="ep-btn ep-btn--cancel" onClick={onCancel}>Cancel</button>
-          <button className="ep-btn ep-btn--save" onClick={handleSave} disabled={saving}>
+          <button className="ep-btn ep-btn--cancel" onClick={handleCancel}>Cancel</button>
+          <button className="ep-btn ep-btn--save" onClick={handleSave} disabled={saving || !isDirty}>
             {saving ? <><div className="ep-spinner" /> Saving...</> : 'Save Changes'}
           </button>
         </div>

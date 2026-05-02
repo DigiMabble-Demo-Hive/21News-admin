@@ -4,6 +4,15 @@ import { supabase } from '../lib/supabase';
 import { updateAdminProfile } from '../lib/adminProfileApi';
 import './ImageEditor.css';
 
+const ASPECT_OPTIONS = [
+  { label: 'Lexicon Card', value: 3 / 2, badge: '3:2' },
+  { label: 'Square', value: 1, badge: '1:1' },
+  { label: 'Portrait', value: 4 / 5, badge: '4:5' },
+  { label: 'Landscape', value: 16 / 9, badge: '16:9' },
+];
+
+const DEFAULT_ASPECT = ASPECT_OPTIONS[0].value;
+
 const createImage = (url) =>
   new Promise((resolve, reject) => {
     const image = new Image();
@@ -12,10 +21,11 @@ const createImage = (url) =>
       console.error('Canvas image load error details:', error);
       reject(new Error('Failed to load image for cropping. If this is an existing image, it may be a CORS issue with your storage bucket.'));
     });
-    // Only set crossOrigin for external URLs, not data URLs
+
     if (!url.startsWith('data:')) {
       image.setAttribute('crossOrigin', 'anonymous');
     }
+
     image.src = url;
   });
 
@@ -25,11 +35,9 @@ const getCroppedImg = async (imageSrc, pixelCrop, rotation = 0) => {
   const ctx = canvas.getContext('2d');
 
   const rotRad = (rotation * Math.PI) / 180;
-
-  // calculate bounding box of the rotated image
   const { width: bBoxWidth, height: bBoxHeight } = {
     width: Math.abs(Math.cos(rotRad) * image.width) + Math.abs(Math.sin(rotRad) * image.height),
-    height: Math.abs(Math.sin(rotRad) * image.width) + Math.abs(Math.cos(rotRad) * image.height)
+    height: Math.abs(Math.sin(rotRad) * image.width) + Math.abs(Math.cos(rotRad) * image.height),
   };
 
   canvas.width = bBoxWidth;
@@ -63,11 +71,26 @@ const getCroppedImg = async (imageSrc, pixelCrop, rotation = 0) => {
   });
 };
 
+const extractStorageFile = (url) => {
+  if (!url || !url.includes('/storage/v1/object/public/')) return null;
+
+  const urlParts = url.split('/storage/v1/object/public/');
+  if (urlParts.length < 2) return null;
+
+  const [bucket, ...pathParts] = urlParts[1].split('/');
+  const filePath = pathParts.join('/');
+
+  if (!bucket || !filePath) return null;
+
+  return { bucket, filePath };
+};
+
 const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelete }) => {
   const [imageSrc, setImageSrc] = useState(currentImageUrl || null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
+  const [aspect, setAspect] = useState(DEFAULT_ASPECT);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -75,21 +98,7 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelet
   const [existingImageBroken, setExistingImageBroken] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) return;
-
-    setCrop({ x: 0, y: 0 });
-    setZoom(1);
-    setRotation(0);
-    setCroppedAreaPixels(null);
-    setUploading(false);
-    setError('');
-    setConfirmDelete(false);
-    setExistingImageBroken(false);
-
-    if (!currentImageUrl) {
-      setImageSrc(null);
-      return;
-    }
+    if (!isOpen || !currentImageUrl) return;
 
     let cancelled = false;
     const previewImage = new Image();
@@ -121,20 +130,52 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelet
     setCroppedAreaPixels(croppedPixels);
   }, []);
 
+  const isDirty = Boolean(imageSrc) && (
+    imageSrc !== currentImageUrl ||
+    crop.x !== 0 ||
+    crop.y !== 0 ||
+    zoom !== 1 ||
+    rotation !== 0 ||
+    aspect !== DEFAULT_ASPECT
+  );
+
+  const handleAttemptClose = () => {
+    if (uploading) return;
+
+    if (isDirty && !window.confirm('Discard your image changes?')) {
+      return;
+    }
+
+    onClose();
+  };
+
+  const handleReset = () => {
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setRotation(0);
+    setAspect(DEFAULT_ASPECT);
+    setError('');
+    setConfirmDelete(false);
+  };
+
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file');
       return;
     }
+
     if (file.size > 5 * 1024 * 1024) {
       setError('Please select an image smaller than 5MB');
       return;
     }
+
     setError('');
     setExistingImageBroken(false);
     setConfirmDelete(false);
+
     const reader = new FileReader();
     reader.onload = () => setImageSrc(reader.result);
     reader.readAsDataURL(file);
@@ -142,17 +183,18 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelet
 
   const handleSave = async () => {
     if (!imageSrc || !croppedAreaPixels) return;
+
     setUploading(true);
     setError('');
 
     try {
+      const previousImage = extractStorageFile(currentImageUrl);
       const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels, rotation);
       const fileName = `${userId}_${Date.now()}.jpg`;
-      const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('photos')
-        .upload(filePath, croppedBlob, {
+        .upload(fileName, croppedBlob, {
           contentType: 'image/jpeg',
           upsert: true,
         });
@@ -161,7 +203,7 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelet
 
       const { data: urlData } = supabase.storage
         .from('photos')
-        .getPublicUrl(filePath);
+        .getPublicUrl(fileName);
 
       const publicUrl = urlData.publicUrl;
 
@@ -171,11 +213,9 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelet
         table: 'user_details',
       });
 
-      await updateAdminProfile({
-        userId,
-        updateData: { image_url: publicUrl },
-        table: 'entities_master',
-      });
+      if (previousImage && currentImageUrl !== publicUrl) {
+        await supabase.storage.from(previousImage.bucket).remove([previousImage.filePath]);
+      }
 
       if (onSave) onSave(publicUrl);
       onClose();
@@ -202,16 +242,22 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelet
     }
   };
 
+  const aspectLabel = ASPECT_OPTIONS.find((option) => option.value === aspect)?.badge || '3:2';
+
   if (!isOpen) return null;
 
   return (
-    <div className="img-editor-overlay" onClick={onClose}>
+    <div className="img-editor-overlay" onClick={handleAttemptClose}>
       <div className="img-editor-modal" onClick={(e) => e.stopPropagation()}>
         <div className="img-editor-header">
-          <h3>Edit Profile Image</h3>
-          <button className="img-editor-close" onClick={onClose}>
+          <div className="img-editor-header-copy">
+            <h3>Edit Lexicon Card Image</h3>
+            <p>Adjust the framing and save the image used on Lexicon profile cards only.</p>
+          </div>
+          <button className="img-editor-close" onClick={handleAttemptClose}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
@@ -221,13 +267,32 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelet
         <div className="img-editor-body">
           {imageSrc ? (
             <>
+              <div className="img-editor-toolbar">
+                <div className="img-editor-aspects">
+                  {ASPECT_OPTIONS.map((option) => (
+                    <button
+                      key={option.badge}
+                      type="button"
+                      className={`img-editor-aspect-btn ${aspect === option.value ? 'active' : ''}`}
+                      onClick={() => setAspect(option.value)}
+                    >
+                      <span>{option.label}</span>
+                      <strong>{option.badge}</strong>
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="img-editor-reset-btn" onClick={handleReset}>
+                  Reset
+                </button>
+              </div>
+
               <div className="img-editor-cropper">
                 <Cropper
                   image={imageSrc}
                   crop={crop}
                   zoom={zoom}
                   rotation={rotation}
-                  aspect={1}
+                  aspect={aspect}
                   onCropChange={setCrop}
                   onZoomChange={setZoom}
                   onRotationChange={setRotation}
@@ -240,8 +305,10 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelet
               <div className="img-editor-controls">
                 <div className="img-editor-sliders-container">
                   <div className="img-editor-slider-row">
+                    <span className="img-editor-slider-label">Zoom</span>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" title="Zoom Out">
-                      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
                       <line x1="8" y1="11" x2="14" y2="11" />
                     </svg>
                     <input
@@ -253,12 +320,16 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelet
                       onChange={(e) => setZoom(Number(e.target.value))}
                       className="img-editor-slider"
                     />
+                    <span className="img-editor-slider-value">{zoom.toFixed(2)}x</span>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" title="Zoom In">
-                      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                      <line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" />
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      <line x1="11" y1="8" x2="11" y2="14" />
+                      <line x1="8" y1="11" x2="14" y2="11" />
                     </svg>
                   </div>
                   <div className="img-editor-slider-row">
+                    <span className="img-editor-slider-label">Rotate</span>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" title="Rotate Left">
                       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
                       <path d="M3 3v5h5" />
@@ -272,6 +343,7 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelet
                       onChange={(e) => setRotation(Number(e.target.value))}
                       className="img-editor-slider"
                     />
+                    <span className="img-editor-slider-value">{rotation}&deg;</span>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" title="Rotate Right">
                       <path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
                       <path d="M21 3v5h-5" />
@@ -282,11 +354,17 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelet
                 <label className="img-editor-upload-btn">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
                   </svg>
                   Change Image
                   <input type="file" accept="image/*" onChange={handleFileSelect} hidden />
                 </label>
+              </div>
+
+              <div className="img-editor-status-row">
+                <span>Tip: drag the image to reposition it inside the crop frame.</span>
+                <span>Current ratio: {aspectLabel}</span>
               </div>
             </>
           ) : (
@@ -303,7 +381,7 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelet
                   <polyline points="21 15 16 10 5 21" />
                 </svg>
                 <span>Click to upload an image</span>
-                <span className="img-editor-dropzone-hint">JPG, PNG, WebP — Max 5MB</span>
+                <span className="img-editor-dropzone-hint">JPG, PNG, WebP - Max 5MB</span>
                 <input type="file" accept="image/*" onChange={handleFileSelect} hidden />
               </label>
             </div>
@@ -311,7 +389,6 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelet
         </div>
 
         <div className="img-editor-footer">
-          {/* Delete Image — only shown if a current image exists */}
           {currentImageUrl && onDelete && (
             confirmDelete ? (
               <div className="img-editor-delete-confirm">
@@ -336,20 +413,18 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelet
             )
           )}
           <div className="img-editor-footer-right">
-            <button className="img-editor-btn img-editor-btn--cancel" onClick={onClose}>
+            <button className="img-editor-btn img-editor-btn--cancel" onClick={handleAttemptClose} disabled={uploading}>
               Cancel
             </button>
             <button
               className="img-editor-btn img-editor-btn--save"
               onClick={handleSave}
-              disabled={!imageSrc || uploading}
+              disabled={!imageSrc || uploading || !croppedAreaPixels}
             >
               {uploading ? (
                 <><div className="img-editor-spinner" /> Saving...</>
               ) : (
-                <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg> Save Image</>
+                <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg> Save Image</>
               )}
             </button>
           </div>

@@ -98,6 +98,7 @@ const EntityProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
+  const [cardPhotoUrl, setCardPhotoUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [suggested, setSuggested] = useState([]);
   const [selectedPhoto, setSelectedPhoto] = useState(0);
@@ -220,6 +221,13 @@ const EntityProfile = () => {
 
     if (!error && data) {
       setProfile(data);
+      const { data: userDetails } = await supabase
+        .from('user_details')
+        .select('photo_url')
+        .eq('user_id', data.user_id)
+        .maybeSingle();
+
+      setCardPhotoUrl(userDetails?.photo_url || null);
 
       if (data.entity_slug && id !== data.entity_slug) {
         navigate(`/entity/${data.entity_slug}`, { replace: true });
@@ -274,15 +282,15 @@ const EntityProfile = () => {
 
   // Handle image save
   const handleImageSave = (newUrl) => {
-    setProfile((prev) => ({ ...prev, image_url: newUrl }));
+    setCardPhotoUrl(newUrl);
   };
 
   // Handle image delete (called from inside ImageEditor)
   const handleImageDelete = async () => {
     try {
       // Remove file from Supabase Storage
-      if (profile.image_url) {
-        const urlParts = profile.image_url.split('/storage/v1/object/public/');
+      if (cardPhotoUrl) {
+        const urlParts = cardPhotoUrl.split('/storage/v1/object/public/');
         if (urlParts.length > 1) {
           const [bucket, ...pathParts] = urlParts[1].split('/');
           const filePath = pathParts.join('/');
@@ -290,20 +298,13 @@ const EntityProfile = () => {
         }
       }
 
-      // Update DB via the serverless API (bypasses RLS, same as image save)
       await updateAdminProfile({
         userId: profile.user_id,
         updateData: { photo_url: null },
         table: 'user_details',
       });
 
-      await updateAdminProfile({
-        userId: profile.user_id,
-        updateData: { image_url: null },
-        table: 'entities_master',
-      });
-
-      setProfile((prev) => ({ ...prev, image_url: null }));
+      setCardPhotoUrl(null);
       setShowImageEditor(false);
     } catch (err) {
       console.error('Failed to delete image:', err);
@@ -338,14 +339,17 @@ const EntityProfile = () => {
       </div>
 
       {/* Image Editor Modal */}
+      {showImageEditor && (
         <ImageEditor
+          key={`${profile.user_id}-${cardPhotoUrl || 'empty-image'}`}
           isOpen={showImageEditor}
           onClose={() => setShowImageEditor(false)}
-          currentImageUrl={profile.image_url}
+          currentImageUrl={cardPhotoUrl}
           userId={profile.user_id}
           onSave={handleImageSave}
           onDelete={handleImageDelete}
         />
+      )}
 
       {/* Hero Section */}
       <section className="profile-hero" data-analytics-section="profile_header">
@@ -363,7 +367,7 @@ const EntityProfile = () => {
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
             </svg>
-            Edit
+            Edit Photo
           </button>
           {(profile.badge === 'verified' || profile.badge === 'claimed') && (
             <div className="profile-image-badge">
