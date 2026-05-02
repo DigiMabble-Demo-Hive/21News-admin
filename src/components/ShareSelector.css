@@ -1,0 +1,138 @@
+/* ============================================================
+   SHARE SELECTOR — Platform picker grid
+   ============================================================ */
+
+.share-selector {
+  margin-bottom: 32px;
+}
+
+.share-selector__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.share-selector__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.share-selector__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1E3A5F;
+  margin-bottom: 2px;
+}
+
+.share-selector__subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Platform grid */
+.share-selector__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+/* Platform button */
+.share-platform-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-light);
+  background: var(--bg-white);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.share-platform-btn:hover {
+  border-color: var(--platform-color, var(--primary-blue));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.share-platform-btn--active {
+  border-color: var(--platform-color, var(--primary-blue));
+  background: color-mix(in srgb, var(--platform-color, var(--primary-blue)) 6%, white);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--platform-color, var(--primary-blue)) 15%, transparent);
+}
+
+/* Icon circle */
+.share-platform-btn__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-light);
+  color: var(--text-dark);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.share-platform-btn--active .share-platform-btn__icon {
+  background: var(--platform-color, var(--primary-blue));
+  color: #fff;
+}
+
+.share-platform-btn__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.share-platform-btn__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+  line-height: 1.2;
+}
+
+.share-platform-btn__desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Checkmark */
+.share-platform-btn__check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--platform-color, var(--primary-blue));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .share-selector__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .share-selector__grid {
+    grid-template-columns: 1fr;
+  }
+}

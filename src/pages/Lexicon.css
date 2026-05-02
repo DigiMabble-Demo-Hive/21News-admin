@@ -1,0 +1,263 @@
+.lexicon-header {
+  background: var(--bg-light);
+  border-bottom: 1px solid var(--border-light);
+  padding: 48px 24px;
+}
+
+.lexicon-header-inner {
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.lexicon-header h1 {
+  font-size: 36px;
+  font-weight: 700;
+  color: #1E3A5F;
+  margin-bottom: 10px;
+  letter-spacing: -0.4px;
+}
+
+.lexicon-header p {
+  font-size: 16px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Search & Filters */
+.lexicon-filters {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 32px 24px 0;
+}
+
+.lexicon-search {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+.lexicon-search-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+}
+
+.lexicon-search input {
+  width: 100%;
+  padding: 14px 16px 14px 44px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-family: var(--font-family);
+  color: var(--text-dark);
+  background: var(--bg-white);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  outline: none;
+}
+
+.lexicon-search input::placeholder {
+  color: var(--text-muted);
+}
+
+.lexicon-search input:focus {
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Tabs */
+.lexicon-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.lexicon-tab {
+  padding: 6px 18px;
+  border-radius: var(--radius-full);
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid var(--border-light);
+  background: var(--bg-white);
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.lexicon-tab.active {
+  background: #1E3A5F;
+  color: white;
+  border-color: #1E3A5F;
+}
+
+.lexicon-tab:not(.active):hover {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+/* Dropdowns Row */
+.lexicon-dropdowns {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 36px;
+}
+
+.lexicon-select-wrapper {
+  position: relative;
+}
+
+.lexicon-select {
+  width: 100%;
+  padding: 11px 40px 11px 16px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-family: var(--font-family);
+  font-weight: 500;
+  color: #1E3A5F;
+  background: var(--bg-white);
+  appearance: none;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.lexicon-select:focus {
+  border-color: var(--primary-blue);
+}
+
+.lexicon-select-arrow {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  display: flex;
+}
+
+.lexicon-more-filters {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  background: var(--bg-white);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.lexicon-more-filters:hover {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+/* Entity Grid */
+.lexicon-results {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 24px 72px;
+}
+
+.lexicon-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+}
+
+/* Pagination */
+.lexicon-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 48px;
+}
+
+.lexicon-page-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  background: var(--bg-white);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.lexicon-page-btn.active {
+  background: var(--primary-blue);
+  color: white;
+  border-color: var(--primary-blue);
+}
+
+.lexicon-page-btn:not(.active):hover {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+@media (max-width: 900px) {
+  .lexicon-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .lexicon-dropdowns {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .lexicon-header {
+    padding: 32px 16px;
+  }
+
+  .lexicon-filters {
+    padding: 24px 16px 0;
+  }
+
+  .lexicon-results {
+    padding: 0 16px 48px;
+  }
+}
+
+@media (max-width: 600px) {
+  .lexicon-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lexicon-dropdowns {
+    grid-template-columns: 1fr;
+  }
+
+  .lexicon-header h1 {
+    font-size: 28px;
+  }
+
+  .lexicon-header p {
+    font-size: 14px;
+  }
+
+  .lexicon-tabs {
+    flex-wrap: wrap;
+  }
+
+  .lexicon-tab {
+    font-size: 13px;
+    padding: 5px 14px;
+  }
+}
+
+

@@ -1,0 +1,357 @@
+/* ============================================================
+   SHARE PROFILE CARD — Ghost Mode Pixel-Perfect
+   Formats: Vertical, Horizontal, Square
+   ============================================================ */
+
+.spc {
+  position: relative;
+  border-radius: 0;
+  color: #fff;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  display: flex;
+  flex-direction: column;
+  background: #1a1f2e; /* Match mockup dark background */
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  padding: 24px;
+  /* Ghost Mode: force text rendering consistency */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  box-sizing: border-box;
+}
+
+/* ============================================================
+   TOP BAR (Badges)
+   ============================================================ */
+.spc__topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.spc__badge {
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.5px;
+}
+
+.spc__badge--verified {
+  background: #00d369; /* Match exactly the bright green in mockup */
+  color: #fff;
+  border-radius: 20px;
+}
+
+.spc__badge--premium {
+  background: #ff8c00; /* Match orange */
+  color: #fff;
+}
+
+/* ============================================================
+   MAIN LAYOUT LOGIC
+   ============================================================ */
+.spc__content {
+  display: flex;
+  flex: 1;
+}
+
+/* Base Photo (Person's Image) Styles */
+.spc__photo {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.spc__photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.spc__photo-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #4f7cf6, #b04bf8, #eb3499);
+  color: #fff;
+}
+
+.spc__photo-fallback span {
+  font-weight: 800;
+  font-family: 'Inter', -apple-system, sans-serif;
+  letter-spacing: -1px;
+}
+
+/* ============================================================
+   DETAILS & STATS — Ghost Mode Safe
+   ============================================================ */
+.spc__name {
+  font-size: 28px;
+  font-weight: 800;
+  margin: 0 0 4px;
+  color: #fff;
+  letter-spacing: -0.5px;
+}
+
+.spc__role {
+  color: #e2e8f0;
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0 0 20px;
+}
+
+.spc__bio {
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0 0 24px;
+  max-height: 3.2em; /* 2 lines */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+}
+
+.spc__stats {
+  display: grid;
+  width: 100%;
+}
+
+.spc__stat-box {
+  background: #1e2637; /* Match stats box background */
+  border: 1px solid rgba(255, 255, 255, 0.08); /* subtle border */
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  gap: 8px; /* space between number and label */
+}
+
+.spc__stat-value {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 30px; /* Big numbers */
+  font-weight: 800;
+  line-height: 1;
+}
+
+.spc__stat-value--yellow {
+  color: #ffd700; /* Bright yellow */
+}
+
+.spc__stat-value--orange {
+  color: #ff8c00;
+}
+
+.spc__stat-value svg {
+  width: 22px;
+  height: 22px;
+}
+
+.spc__stat-label {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* ============================================================
+   BOTTOM BANNER
+   ============================================================ */
+.spc__footer {
+  width: 100%;
+  margin-top: 24px;
+  padding: 16px;
+  text-align: center;
+  background: linear-gradient(90deg, #3b82f6, #a855f7); /* Blue to Purple */
+  border-radius: 16px; /* Smooth edge tag */
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #fff;
+  box-sizing: border-box;
+}
+
+/* ============================================================
+   HORIZONTAL FIX (Desktop Preview)
+   ============================================================ */
+.spc--horizontal {
+  width: 680px;
+}
+
+.spc--horizontal .spc__content {
+  flex-direction: row;
+  gap: 32px;
+  align-items: stretch; /* Make image height match details */
+}
+
+.spc--horizontal .spc__photo {
+  flex: 0 0 320px;
+  width: 320px;
+}
+
+.spc--horizontal .spc__photo-fallback span {
+  font-size: 84px;
+}
+
+.spc--horizontal .spc__details {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+}
+
+.spc--horizontal .spc__stats {
+  grid-template-columns: 1fr; /* Stacked vertically */
+  gap: 16px;
+  margin-top: auto; /* push down if bio is short */
+}
+
+/* ============================================================
+   VERTICAL FIX (Mobile Preview)
+   ============================================================ */
+.spc--vertical {
+  width: 440px;
+  padding: 16px;
+}
+
+.spc--vertical .spc__topbar {
+  margin-bottom: 16px;
+}
+
+.spc--vertical .spc__content {
+  flex-direction: column;
+  gap: 16px;
+}
+
+.spc--vertical .spc__photo {
+  width: 100%;
+  aspect-ratio: 1/1; /* Full square photo */
+}
+
+.spc--vertical .spc__photo-fallback span {
+  font-size: 80px;
+}
+
+.spc--vertical .spc__details {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.spc--vertical .spc__stats {
+  grid-template-columns: 1fr 1fr; /* Side by side */
+  gap: 16px;
+  margin-top: 8px; /* Extra gap above stats */
+}
+
+/* ============================================================
+   SQUARE FIX (For general sharing if needed)
+   ============================================================ */
+.spc--square {
+  width: 680px;
+  height: 680px;
+  display: flex;
+  flex-direction: column;
+}
+
+.spc--square .spc__topbar {
+  margin-bottom: 24px;
+}
+
+.spc--square .spc__content {
+  flex-direction: row;
+  gap: 32px;
+  align-items: stretch;
+  flex: 1;
+}
+
+.spc--square .spc__photo {
+  flex: 0 0 360px;
+  width: 360px;
+}
+
+.spc--square .spc__photo-fallback span {
+  font-size: 84px;
+}
+
+.spc--square .spc__details {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+}
+
+.spc--square .spc__stats {
+  grid-template-columns: 1fr;
+  gap: 16px;
+  margin-top: 32px; /* Changed from auto to bring stats closer to bio */
+}
+
+/* ============================================================
+   RESPONSIVE SCALING FOR EXTREMELY SMALL SCREENS
+   ============================================================ */
+@media (max-width: 480px) {
+  .spc--vertical,
+  .spc--horizontal,
+  .spc--square {
+    width: 100%;
+    max-width: 360px;
+    padding: 16px;
+  }
+  
+  .spc__name {
+    font-size: 24px;
+  }
+
+  .spc--vertical .spc__photo-fallback span,
+  .spc--horizontal .spc__photo-fallback span,
+  .spc--square .spc__photo-fallback span {
+    font-size: 64px;
+  }
+
+  .spc--horizontal .spc__topbar,
+  .spc--square .spc__topbar {
+    margin-bottom: 16px;
+  }
+
+  .spc--horizontal .spc__content,
+  .spc--square .spc__content {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .spc--horizontal .spc__photo,
+  .spc--square .spc__photo {
+    flex: none;
+    width: 100%;
+    aspect-ratio: 1/1;
+  }
+
+  .spc--horizontal .spc__details,
+  .spc--square .spc__details {
+    text-align: center;
+    align-items: center;
+  }
+
+  .spc--horizontal .spc__stats,
+  .spc--square .spc__stats {
+    grid-template-columns: 1fr 1fr;
+    margin-top: 8px;
+  }
+}

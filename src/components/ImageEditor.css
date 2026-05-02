@@ -1,0 +1,321 @@
+.img-editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 15, 30, 0.7);
+  backdrop-filter: blur(8px);
+  padding: 20px;
+  animation: imgEditorFadeIn 0.2s ease;
+}
+
+@keyframes imgEditorFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.img-editor-modal {
+  width: 100%;
+  max-width: 520px;
+  background: white;
+  border-radius: var(--radius-xl);
+  box-shadow: 0 32px 100px rgba(0, 0, 0, 0.3);
+  animation: imgEditorSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+@keyframes imgEditorSlideIn {
+  from { opacity: 0; transform: scale(0.92) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.img-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.img-editor-header h3 {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1E3A5F;
+}
+
+.img-editor-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--bg-gray);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition-fast);
+}
+
+.img-editor-close:hover {
+  background: #E2E8F0;
+  color: var(--text-dark);
+  transform: rotate(90deg);
+}
+
+.img-editor-error {
+  margin: 12px 24px 0;
+  padding: 10px 14px;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: var(--radius-sm);
+  color: #DC2626;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.img-editor-body {
+  padding: 24px;
+}
+
+/* Cropper area */
+.img-editor-cropper {
+  position: relative;
+  width: 100%;
+  height: 320px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #0F172A;
+}
+
+/* Controls */
+.img-editor-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.img-editor-sliders-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.img-editor-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.img-editor-slider {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--border-light);
+  border-radius: 2px;
+  outline: none;
+}
+
+.img-editor-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #1E3A5F;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(30, 58, 95, 0.3);
+}
+
+.img-editor-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+  background: white;
+  color: var(--text-dark);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.img-editor-upload-btn:hover {
+  border-color: var(--primary-blue);
+  color: var(--primary-blue);
+}
+
+/* Upload dropzone */
+.img-editor-upload-area {
+  padding: 20px 0;
+}
+
+.img-editor-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  border: 2px dashed var(--border-light);
+  border-radius: var(--radius-lg);
+  background: var(--bg-light);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--text-secondary);
+}
+
+.img-editor-dropzone:hover {
+  border-color: var(--primary-blue);
+  background: #F0F7FF;
+}
+
+.img-editor-dropzone span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.img-editor-dropzone-hint {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: var(--text-muted) !important;
+}
+
+/* Footer */
+.img-editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-light);
+}
+
+.img-editor-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.img-editor-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition-fast);
+}
+
+.img-editor-btn--cancel {
+  background: white;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.img-editor-btn--cancel:hover {
+  background: var(--bg-gray);
+}
+
+.img-editor-btn--save {
+  background: #1E3A5F;
+  color: white;
+  box-shadow: 0 2px 8px rgba(30, 58, 95, 0.2);
+}
+
+.img-editor-btn--save:hover:not(:disabled) {
+  background: #152B47;
+  transform: translateY(-1px);
+}
+
+.img-editor-btn--save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Delete button */
+.img-editor-btn--delete {
+  background: #FEF2F2;
+  color: #DC2626;
+  border: 1.5px solid #FECACA;
+  padding: 8px 16px;
+  font-size: 13px;
+}
+
+.img-editor-btn--delete:hover {
+  background: #FEE2E2;
+  border-color: #F87171;
+  transform: translateY(-1px);
+}
+
+/* Inline delete confirmation */
+.img-editor-delete-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.img-editor-delete-confirm span {
+  font-size: 13px;
+  font-weight: 600;
+  color: #DC2626;
+}
+
+.img-editor-btn--delete-yes {
+  background: #EF4444;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.img-editor-btn--delete-yes:hover {
+  background: #DC2626;
+  transform: translateY(-1px);
+}
+
+.img-editor-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: imgEditorSpin 0.7s linear infinite;
+}
+
+@keyframes imgEditorSpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 560px) {
+  .img-editor-modal {
+    max-width: 100%;
+  }
+
+  .img-editor-cropper {
+    height: 260px;
+  }
+
+  .img-editor-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

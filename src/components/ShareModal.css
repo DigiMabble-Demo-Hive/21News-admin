@@ -1,0 +1,548 @@
+/* ============================================================
+   SHARE MODAL — Sidebar icons + Big Preview layout
+   ============================================================ */
+
+/* Overlay */
+.sm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 15, 30, 0.65);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: smOverlayIn 0.2s ease;
+  padding: 20px;
+}
+
+@keyframes smOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Modal */
+.sm {
+  position: relative;
+  width: 100%;
+  max-width: 960px; /* Increased from 720px */
+  max-height: 92vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 24px;
+  box-shadow:
+    0 32px 100px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  animation: smModalIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.1) transparent;
+}
+
+.sm::-webkit-scrollbar { width: 4px; }
+.sm::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 4px; }
+
+@keyframes smModalIn {
+  from { opacity: 0; transform: scale(0.92) translateY(24px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Close */
+.sm__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: #F1F5F9;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sm__close:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+  transform: rotate(90deg);
+}
+
+/* ============================================================
+   LAYOUT — Sidebar + Main
+   ============================================================ */
+.sm__layout {
+  display: flex;
+  min-height: 0;
+}
+
+/* ============================================================
+   SIDEBAR — Compact platform icons
+   ============================================================ */
+.sm__sidebar {
+  width: 88px;
+  flex-shrink: 0;
+  border-right: 1px solid #F1F5F9;
+  padding: 20px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #FAFBFC;
+  border-radius: 24px 0 0 24px;
+}
+
+.sm__sidebar-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: #94A3B8;
+  margin-bottom: 14px;
+  white-space: nowrap;
+}
+
+.sm__sidebar-icons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+/* Icon button */
+.sm__icon-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px 6px;
+  border-radius: 12px;
+  border: 1.5px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.sm__icon-btn:hover {
+  background: #F1F5F9;
+  border-color: color-mix(in srgb, var(--pc) 30%, transparent);
+}
+
+.sm__icon-btn--active {
+  background: color-mix(in srgb, var(--pc) 8%, white);
+  border-color: var(--pc);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--pc) 15%, transparent);
+}
+
+.sm__icon-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--pg, #F1F5F9);
+  color: #fff;
+  transition: all 0.2s ease;
+}
+
+.sm__icon-btn:hover .sm__icon-circle {
+  transform: scale(1.06);
+}
+
+.sm__icon-name {
+  font-size: 9px;
+  font-weight: 600;
+  color: #64748B;
+  line-height: 1;
+  letter-spacing: 0.1px;
+}
+
+.sm__icon-btn--active .sm__icon-name {
+  color: var(--pc);
+  font-weight: 700;
+}
+
+/* Check indicator */
+.sm__icon-check {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #22C55E;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: checkPop 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes checkPop {
+  from { transform: scale(0); }
+  50% { transform: scale(1.3); }
+  to { transform: scale(1); }
+}
+
+/* ============================================================
+   MAIN — Preview + Caption + Send
+   ============================================================ */
+.sm__main {
+  flex: 1;
+  min-width: 0;
+  padding: 24px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ============================================================
+   PREVIEW — Large, dominant
+   ============================================================ */
+.sm__preview {
+  flex: 1;
+  min-height: 0;
+}
+
+.sm__preview-canvas {
+  position: relative;
+  border-radius: 18px;
+  background: #0B101E; /* Deep dark background matching the mockups */
+  border: 1px solid #1E293B;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  transition: padding 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 32px 0;
+}
+
+/* Container heights per format are auto to naturally fit the big cards */
+.sm__preview--square .sm__preview-canvas {
+  height: auto;
+}
+.sm__preview--horizontal .sm__preview-canvas {
+  height: auto;
+}
+.sm__preview--vertical .sm__preview-canvas {
+  height: auto;
+}
+
+/* Card wrapper */
+.sm__card-wrap {
+  filter: drop-shadow(0 16px 40px rgba(0, 0, 0, 0.2));
+  animation: cardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-top: 0;
+}
+
+/* Desktop scales — native size (1.0) eliminates clipping via native flow bounding */
+.sm__preview--square .sm__card-wrap {
+  transform: none;
+}
+.sm__preview--horizontal .sm__card-wrap {
+  transform: none;
+}
+.sm__preview--vertical .sm__card-wrap {
+  transform: none;
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; }
+}
+
+/* Format toggle */
+.sm__format-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.sm__format-btn {
+  padding: 6px 16px;
+  border-radius: 20px;
+  border: 1px solid #E2E8F0;
+  background: #fff;
+  color: #64748B;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.sm__format-btn:hover {
+  background: #F1F5F9;
+  color: #334155;
+}
+
+.sm__format-btn--active {
+  background: #3B82F6;
+  color: #fff;
+  border-color: #3B82F6;
+}
+
+/* ============================================================
+   GENERATED CAPTION (Read-only Display)
+   ============================================================ */
+.sm__generated-caption {
+  position: relative;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  background: #FAFBFC;
+}
+
+.sm__generated-caption p {
+  font-size: 13px;
+  font-family: 'Inter', -apple-system, sans-serif;
+  color: #334155;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap; /* allow explicit new lines */
+}
+
+.sm__generated-badge {
+  position: absolute;
+  top: -8px;
+  left: 14px;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  color: #64748B;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   SEND BUTTON
+   ============================================================ */
+.sm__send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 24px;
+  border: none;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background: #E2E8F0;
+  color: #94A3B8;
+  letter-spacing: 0.2px;
+}
+
+.sm__send-btn:disabled {
+  cursor: not-allowed;
+}
+
+.sm__send-btn--ready {
+  background: var(--send-color, #3B82F6);
+  color: #fff;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--send-color, #3B82F6) 30%, transparent);
+}
+
+.sm__send-btn--ready:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--send-color, #3B82F6) 40%, transparent);
+}
+
+.sm__send-btn--ready:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Spinner */
+.sm__send-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   RESPONSIVE — Mobile
+   ============================================================ */
+@media (max-width: 680px) {
+  .sm {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 22px 22px 0 0;
+    animation: smMobileIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes smMobileIn {
+    from { opacity: 0; transform: translateY(100%); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .sm-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  /* Switch to top bar layout on mobile */
+  .sm__layout {
+    flex-direction: column;
+  }
+
+  .sm__sidebar {
+    width: 100%;
+    flex-direction: column;
+    border-right: none;
+    border-bottom: 1px solid #F1F5F9;
+    border-radius: 22px 22px 0 0;
+    padding: 16px 12px 12px;
+  }
+
+  .sm__sidebar-label {
+    margin-bottom: 10px;
+  }
+
+  .sm__sidebar-icons {
+    flex-direction: row;
+    overflow-x: auto;
+    gap: 2px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .sm__sidebar-icons::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sm__icon-btn {
+    min-width: 60px;
+    padding: 6px 4px 5px;
+  }
+
+  .sm__icon-circle {
+    width: 34px;
+    height: 34px;
+  }
+
+  .sm__main {
+    padding: 16px 16px 18px;
+    gap: 12px;
+  }
+
+  /* ── Mobile Preview: proper fit-to-container scaling ── */
+  .sm__preview-canvas {
+    padding: 16px;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .sm__card-wrap {
+    transform-origin: center center;
+    margin: 0 auto;
+  }
+
+  /* Square format: card is 400px wide → scale 0.78 fits ~312px in 345px viewport */
+  .sm__preview--square .sm__preview-canvas {
+    height: min(360px, 48vh);
+  }
+  .sm__preview--square .sm__card-wrap {
+    transform: scale(0.78);
+  }
+
+  /* Horizontal format: card is 680px wide → scale 0.48 fits ~326px */
+  .sm__preview--horizontal .sm__preview-canvas {
+    height: min(250px, 35vh);
+  }
+  .sm__preview--horizontal .sm__card-wrap {
+    transform: scale(0.48);
+  }
+
+  /* Vertical format: card is 360px wide → scale 0.85 fits ~306px */
+  .sm__preview--vertical .sm__preview-canvas {
+    height: min(400px, 52vh);
+  }
+  .sm__preview--vertical .sm__card-wrap {
+    transform: scale(0.85);
+  }
+
+  .sm__send-btn {
+    padding: 14px 20px;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 400px) {
+  .sm__preview--square .sm__preview-canvas {
+    height: min(320px, 45vh);
+  }
+  .sm__preview--horizontal .sm__preview-canvas {
+    height: min(240px, 35vh);
+  }
+  .sm__preview--vertical .sm__preview-canvas {
+    height: min(360px, 48vh);
+  }
+
+  .sm__icon-btn {
+    min-width: 52px;
+    padding: 5px 2px 4px;
+  }
+
+  .sm__icon-circle {
+    width: 30px;
+    height: 30px;
+  }
+
+  .sm__icon-circle svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .sm__icon-name {
+    font-size: 8px;
+  }
+}
+
+/* ============================================================
+   TOAST POPUP
+   ============================================================ */
+.sm__toast {
+  position: absolute;
+  top: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #10B981;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+  z-index: 1000;
+  animation: toastIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translate(-50%, -20px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
