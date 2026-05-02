@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { updateAdminProfile } from '../lib/adminProfileApi';
 import './EditableProfile.css';
 
 const EditableProfile = ({ profile, onSave, onCancel }) => {
@@ -90,18 +90,10 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
         content_activity: form.content_activity,
       };
 
-      const response = await fetch('/api/admin-update-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: profile.user_id,
-          updateData: updateData
-        })
+      await updateAdminProfile({
+        userId: profile.user_id,
+        updateData,
       });
-
-      const { data, error: dbError } = await response.json();
-
-      if (dbError) throw dbError;
       onSave({ ...profile, ...updateData });
     } catch (err) {
       console.error('Save error:', err);

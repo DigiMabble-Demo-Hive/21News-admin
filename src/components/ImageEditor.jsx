@@ -1,14 +1,21 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Cropper from 'react-easy-crop';
 import { supabase } from '../lib/supabase';
+import { updateAdminProfile } from '../lib/adminProfileApi';
 import './ImageEditor.css';
 
 const createImage = (url) =>
   new Promise((resolve, reject) => {
     const image = new Image();
     image.addEventListener('load', () => resolve(image));
-    image.addEventListener('error', (error) => reject(error));
-    image.setAttribute('crossOrigin', 'anonymous');
+    image.addEventListener('error', (error) => {
+      console.error('Canvas image load error details:', error);
+      reject(new Error('Failed to load image for cropping. If this is an existing image, it may be a CORS issue with your storage bucket.'));
+    });
+    // Only set crossOrigin for external URLs, not data URLs
+    if (!url.startsWith('data:')) {
+      image.setAttribute('crossOrigin', 'anonymous');
+    }
     image.src = url;
   });
 
@@ -56,7 +63,7 @@ const getCroppedImg = async (imageSrc, pixelCrop, rotation = 0) => {
   });
 };
 
-const ImageEditor = ({ isOpen, onClose, currentImageUrl, entityName, userId, onSave, onDelete }) => {
+const ImageEditor = ({ isOpen, onClose, currentImageUrl, userId, onSave, onDelete }) => {
   const [imageSrc, setImageSrc] = useState(currentImageUrl || null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -65,6 +72,50 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, entityName, userId, onS
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [existingImageBroken, setExistingImageBroken] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setRotation(0);
+    setCroppedAreaPixels(null);
+    setUploading(false);
+    setError('');
+    setConfirmDelete(false);
+    setExistingImageBroken(false);
+
+    if (!currentImageUrl) {
+      setImageSrc(null);
+      return;
+    }
+
+    let cancelled = false;
+    const previewImage = new Image();
+
+    previewImage.onload = () => {
+      if (cancelled) return;
+      setImageSrc(currentImageUrl);
+    };
+
+    previewImage.onerror = () => {
+      if (cancelled) return;
+      setExistingImageBroken(true);
+      setImageSrc(null);
+      setError('The current image could not be loaded. You can upload a replacement image below.');
+    };
+
+    if (!currentImageUrl.startsWith('data:')) {
+      previewImage.crossOrigin = 'anonymous';
+    }
+
+    previewImage.src = currentImageUrl;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentImageUrl, isOpen]);
 
   const onCropComplete = useCallback((_, croppedPixels) => {
     setCroppedAreaPixels(croppedPixels);
@@ -77,7 +128,13 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, entityName, userId, onS
       setError('Please select an image file');
       return;
     }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Please select an image smaller than 5MB');
+      return;
+    }
     setError('');
+    setExistingImageBroken(false);
+    setConfirmDelete(false);
     const reader = new FileReader();
     reader.onload = () => setImageSrc(reader.result);
     reader.readAsDataURL(file);
@@ -108,43 +165,38 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, entityName, userId, onS
 
       const publicUrl = urlData.publicUrl;
 
-      // Update user_details table via Vercel Serverless Function
-      const res1 = await fetch('/api/admin-update-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: userId,
-          updateData: { photo_url: publicUrl },
-          table: 'user_details'
-        })
+      await updateAdminProfile({
+        userId,
+        updateData: { photo_url: publicUrl },
+        table: 'user_details',
       });
-      const { error: dbError } = await res1.json();
 
-      if (dbError) {
-        console.warn('user_details update warning:', dbError);
-      }
-
-      // Also update entities_master image_url via Vercel Serverless Function
-      const res2 = await fetch('/api/admin-update-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: userId,
-          updateData: { image_url: publicUrl },
-          table: 'entities_master'
-        })
+      await updateAdminProfile({
+        userId,
+        updateData: { image_url: publicUrl },
+        table: 'entities_master',
       });
-      const { error: entityError } = await res2.json();
-
-      if (entityError) {
-        console.warn('entities_master update warning:', entityError);
-      }
 
       if (onSave) onSave(publicUrl);
       onClose();
     } catch (err) {
       console.error('Image upload error:', err);
       setError(err.message || 'Failed to upload image');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!onDelete) return;
+
+    setUploading(true);
+    setError('');
+
+    try {
+      await onDelete();
+    } catch (err) {
+      setError(err.message || 'Failed to delete image');
     } finally {
       setUploading(false);
     }
@@ -239,6 +291,11 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, entityName, userId, onS
             </>
           ) : (
             <div className="img-editor-upload-area">
+              {existingImageBroken && (
+                <div className="img-editor-status">
+                  The stored image is unavailable. Upload a replacement to restore the profile image.
+                </div>
+              )}
               <label className="img-editor-dropzone">
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -259,13 +316,14 @@ const ImageEditor = ({ isOpen, onClose, currentImageUrl, entityName, userId, onS
             confirmDelete ? (
               <div className="img-editor-delete-confirm">
                 <span>Delete this image?</span>
-                <button className="img-editor-btn img-editor-btn--delete-yes" onClick={onDelete}>Yes, delete</button>
-                <button className="img-editor-btn img-editor-btn--cancel" onClick={() => setConfirmDelete(false)}>No</button>
+                <button className="img-editor-btn img-editor-btn--delete-yes" onClick={handleDelete} disabled={uploading}>Yes, delete</button>
+                <button className="img-editor-btn img-editor-btn--cancel" onClick={() => setConfirmDelete(false)} disabled={uploading}>No</button>
               </div>
             ) : (
               <button
                 className="img-editor-btn img-editor-btn--delete"
                 onClick={() => setConfirmDelete(true)}
+                disabled={uploading}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="3 6 5 6 21 6" />

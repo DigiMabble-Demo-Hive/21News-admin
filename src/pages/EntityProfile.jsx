@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { updateAdminProfile } from '../lib/adminProfileApi';
 import { trackProfileEvent } from '../lib/profileAnalytics';
 import ShareModal from '../components/ShareModal';
 import EditableProfile from '../components/EditableProfile';
@@ -290,22 +291,23 @@ const EntityProfile = () => {
       }
 
       // Update DB via the serverless API (bypasses RLS, same as image save)
-      const res = await fetch('/api/admin-update-profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: profile.user_id,
-          updateData: { image_url: null },
-          table: 'entities_master',
-        }),
+      await updateAdminProfile({
+        userId: profile.user_id,
+        updateData: { photo_url: null },
+        table: 'user_details',
       });
-      const result = await res.json();
-      if (result.error) throw new Error(result.error);
+
+      await updateAdminProfile({
+        userId: profile.user_id,
+        updateData: { image_url: null },
+        table: 'entities_master',
+      });
 
       setProfile((prev) => ({ ...prev, image_url: null }));
       setShowImageEditor(false);
     } catch (err) {
       console.error('Failed to delete image:', err);
+      throw err;
     }
   };
 
@@ -336,15 +338,14 @@ const EntityProfile = () => {
       </div>
 
       {/* Image Editor Modal */}
-      <ImageEditor
-        isOpen={showImageEditor}
-        onClose={() => setShowImageEditor(false)}
-        currentImageUrl={profile.image_url}
-        entityName={profile.name}
-        userId={profile.user_id}
-        onSave={handleImageSave}
-        onDelete={handleImageDelete}
-      />
+        <ImageEditor
+          isOpen={showImageEditor}
+          onClose={() => setShowImageEditor(false)}
+          currentImageUrl={profile.image_url}
+          userId={profile.user_id}
+          onSave={handleImageSave}
+          onDelete={handleImageDelete}
+        />
 
       {/* Hero Section */}
       <section className="profile-hero" data-analytics-section="profile_header">
