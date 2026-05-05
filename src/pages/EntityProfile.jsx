@@ -5,7 +5,7 @@ import { updateAdminProfile } from '../lib/adminProfileApi';
 import { trackProfileEvent } from '../lib/profileAnalytics';
 import ShareModal from '../components/ShareModal';
 import EditableProfile from '../components/EditableProfile';
-import ImageEditor from '../components/ImageEditor';
+import ImageEditor, { extractStorageFile } from '../components/ImageEditor';
 import { generateJsonLd } from '../utils/jsonLdGenerator';
 import './EntityProfile.css';
 
@@ -98,14 +98,15 @@ const EntityProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
-  const [cardPhotoUrl, setCardPhotoUrl] = useState(null);
+  const [lexiconFullUrl, setLexiconFullUrl] = useState(null);
+  const [lexiconCroppedUrl, setLexiconCroppedUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [suggested, setSuggested] = useState([]);
   const [selectedPhoto, setSelectedPhoto] = useState(0);
   const [showShareModal, setShowShareModal] = useState(false);
   const [playingVideo, setPlayingVideo] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [showImageEditor, setShowImageEditor] = useState(false);
+  const [editingImageTarget, setEditingImageTarget] = useState(null);
   const observedSectionsRef = useRef(new Set());
 
   useEffect(() => {
@@ -223,11 +224,12 @@ const EntityProfile = () => {
       setProfile(data);
       const { data: userDetails } = await supabase
         .from('user_details')
-        .select('photo_url')
+        .select('photo_url, cropped_photo_url')
         .eq('user_id', data.user_id)
         .maybeSingle();
 
-      setCardPhotoUrl(userDetails?.photo_url || null);
+      setLexiconFullUrl(userDetails?.photo_url || null);
+      setLexiconCroppedUrl(userDetails?.cropped_photo_url || null);
 
       if (data.entity_slug && id !== data.entity_slug) {
         navigate(`/entity/${data.entity_slug}`, { replace: true });
@@ -269,7 +271,7 @@ const EntityProfile = () => {
   const videos = profile.videos || [];
   const pubs = profile.publications || [];
   const quickFacts = profile.quick_facts || [];
-  const photos = [profile.image_url, profile.hero_image_url, profile.hq_image_url].filter(Boolean);
+  const photos = [lexiconFullUrl, profile.hero_image_url, profile.hq_image_url].filter(Boolean);
   const lastUpdated = profile.updated_at
     ? new Date(profile.updated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : '';
@@ -281,31 +283,65 @@ const EntityProfile = () => {
   };
 
   // Handle image save
-  const handleImageSave = (newUrl) => {
-    setCardPhotoUrl(newUrl);
+  const handleImageSave = (result) => {
+    if (editingImageTarget === 'profile') {
+      setProfile(prev => ({ ...prev, image_url: result }));
+    } else {
+      if (result.fullUrl) setLexiconFullUrl(result.fullUrl);
+      if (result.croppedUrl) setLexiconCroppedUrl(result.croppedUrl);
+    }
   };
 
   // Handle image delete (called from inside ImageEditor)
   const handleImageDelete = async () => {
     try {
-      // Remove file from Supabase Storage
-      if (cardPhotoUrl) {
-        const urlParts = cardPhotoUrl.split('/storage/v1/object/public/');
-        if (urlParts.length > 1) {
-          const [bucket, ...pathParts] = urlParts[1].split('/');
-          const filePath = pathParts.join('/');
-          await supabase.storage.from(bucket).remove([filePath]);
+      const isProfile = editingImageTarget === 'profile';
+      // When deleting the card image, also delete the old profile.image_url so it doesn't fall back to it
+      const urlsToDelete = isProfile 
+        ? [profile?.image_url] 
+        : [lexiconFullUrl, lexiconCroppedUrl, profile?.image_url];
+
+      // Remove files from Supabase Storage using shared utility
+      const files = urlsToDelete.filter(Boolean).map(extractStorageFile).filter(Boolean);
+      const byBucket = files.reduce((acc, { bucket, filePath }) => {
+        acc[bucket] = acc[bucket] || [];
+        acc[bucket].push(filePath);
+        return acc;
+      }, {});
+
+      for (const [bucket, filePaths] of Object.entries(byBucket)) {
+        try {
+          await supabase.storage.from(bucket).remove(filePaths);
+        } catch (cleanupErr) {
+          console.warn('Storage cleanup warning:', cleanupErr.message);
         }
       }
 
-      await updateAdminProfile({
-        userId: profile.user_id,
-        updateData: { photo_url: null },
-        table: 'user_details',
-      });
-
-      setCardPhotoUrl(null);
-      setShowImageEditor(false);
+      if (isProfile) {
+        await updateAdminProfile({
+          userId: profile.user_id,
+          updateData: { image_url: null },
+          table: 'entities_master',
+        });
+        setProfile(prev => ({ ...prev, image_url: null }));
+      } else {
+        // Clear user_details photos
+        await updateAdminProfile({
+          userId: profile.user_id,
+          updateData: { photo_url: null, cropped_photo_url: null },
+          table: 'user_details',
+        });
+        // Clear entities_master image_url so the old fallback doesn't appear
+        await updateAdminProfile({
+          userId: profile.user_id,
+          updateData: { image_url: null },
+          table: 'entities_master',
+        });
+        setLexiconFullUrl(null);
+        setLexiconCroppedUrl(null);
+        setProfile(prev => ({ ...prev, image_url: null }));
+      }
+      setEditingImageTarget(null);
     } catch (err) {
       console.error('Failed to delete image:', err);
       throw err;
@@ -336,18 +372,35 @@ const EntityProfile = () => {
           </svg>
           Edit Profile
         </button>
+        <button className="admin-edit-btn" style={{ marginLeft: '12px', background: 'var(--surface-color)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }} onClick={() => setEditingImageTarget('card')}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+          Manage Profile Images
+        </button>
       </div>
 
       {/* Image Editor Modal */}
-      {showImageEditor && (
+      {editingImageTarget && (
         <ImageEditor
-          key={`${profile.user_id}-${cardPhotoUrl || 'empty-image'}`}
-          isOpen={showImageEditor}
-          onClose={() => setShowImageEditor(false)}
-          currentImageUrl={cardPhotoUrl}
+          key={`${profile.user_id}-${editingImageTarget}-${(editingImageTarget === 'profile' ? (profile.image_url || profile.hero_image_url || profile.hq_image_url) : (lexiconCroppedUrl || lexiconFullUrl || profile.image_url)) || 'empty'}`}
+          isOpen={!!editingImageTarget}
+          onClose={() => setEditingImageTarget(null)}
+          currentImageUrl={editingImageTarget === 'profile'
+            ? (profile.image_url || profile.hero_image_url || profile.hq_image_url)
+            : (lexiconCroppedUrl || lexiconFullUrl || profile.image_url)
+          }
+          oldFullUrl={editingImageTarget === 'profile' ? null : (lexiconFullUrl || profile.image_url)}
+          oldCroppedUrl={editingImageTarget === 'profile' ? null : lexiconCroppedUrl}
           userId={profile.user_id}
           onSave={handleImageSave}
           onDelete={handleImageDelete}
+          tableName={editingImageTarget === 'profile' ? 'entities_master' : 'user_details'}
+          columnName={editingImageTarget === 'profile' ? 'image_url' : 'photo_url'}
+          title={editingImageTarget === 'profile' ? 'Upload Profile Image' : 'Manage Profile & Card Images'}
+          description={editingImageTarget === 'profile' ? 'Upload the main hero image for this entity profile.' : 'Upload your photo. We will save both the full-resolution image and the cropped card version.'}
         />
       )}
 
@@ -361,14 +414,6 @@ const EntityProfile = () => {
             fallbackClassName="profile-image-fallback"
             fallbackText={getInitials(profile.name)}
           />
-          {/* Admin Image Edit Button – top-right */}
-          <button className="admin-image-edit-btn" onClick={() => setShowImageEditor(true)} title="Edit Image">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </svg>
-            Edit Photo
-          </button>
           {(profile.badge === 'verified' || profile.badge === 'claimed') && (
             <div className="profile-image-badge">
               <svg width="20" height="20" viewBox="0 0 32 32" fill="none">

@@ -45,7 +45,7 @@ const Lexicon = () => {
 
     const { data: cardPhotoRows, error: cardPhotosError } = await supabase
       .from('user_details')
-      .select('user_id, photo_url');
+      .select('user_id, cropped_photo_url');
 
     const { data, error } = entitiesResult;
 
@@ -66,7 +66,7 @@ const Lexicon = () => {
       }, {});
 
       const cardPhotoByUserId = (cardPhotoRows || []).reduce((photos, row) => {
-        photos[row.user_id] = row.photo_url || null;
+        photos[row.user_id] = row.cropped_photo_url || null;
         return photos;
       }, {});
 

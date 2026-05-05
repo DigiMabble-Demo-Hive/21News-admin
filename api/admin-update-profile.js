@@ -31,7 +31,7 @@ export default async function handler(req, res) {
 
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { data, error } = await supabaseClient
+    let { data, error } = await supabaseClient
       .from(targetTable)
       .update(updateData)
       .eq('user_id', userId)
@@ -39,9 +39,21 @@ export default async function handler(req, res) {
 
     if (error) throw error;
 
+    // Upsert guard: if update matched 0 rows on user_details, insert a new row
+    if ((!data || data.length === 0) && targetTable === 'user_details') {
+      const upsertResult = await supabaseClient
+        .from(targetTable)
+        .upsert({ user_id: userId, ...updateData }, { onConflict: 'user_id' })
+        .select();
+
+      if (upsertResult.error) throw upsertResult.error;
+      data = upsertResult.data;
+    }
+
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = error instanceof Error ? error.message : (typeof error === 'object' ? JSON.stringify(error) : String(error));
+    console.error('API Error:', error);
     return res.status(400).json({ error: errorMessage });
   }
 }
