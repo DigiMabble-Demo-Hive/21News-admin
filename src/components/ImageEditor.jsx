@@ -45,7 +45,7 @@ const safeRemoveStorageFiles = async (urls) => {
  * ImageEditor — Admin image management with two modes:
  *
  * 1. Card Mode (tableName === 'user_details'):
- *    Inline crop canvas (480×300) with drag/zoom. No second modal.
+ *    Inline crop canvas (480×300) with drag/zoom.
  *    Stores both full original (photo_url) and cropped (cropped_photo_url).
  *
  * 2. Profile Mode (tableName === 'entities_master'):
@@ -88,8 +88,6 @@ const ImageEditor = ({
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
-  const [activeTab, setActiveTab] = useState('card'); // 'card' or 'full'
-  const pendingImageSrc = useRef(null); // tracks src to reload into canvas when card tab mounts
 
   // Lightbox for full photo
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -108,8 +106,6 @@ const ImageEditor = ({
       setCardOriginalFile(null);
       setCanvasReady(false);
       setLightboxOpen(false);
-      setActiveTab('card');
-      pendingImageSrc.current = null;
       return;
     }
     // Card mode: load existing image into canvas on open
@@ -121,26 +117,6 @@ const ImageEditor = ({
       }
     }
   }, [isOpen]);
-
-  // ── Re-draw canvas when switching back to Card tab ──────────────────────────
-  useEffect(() => {
-    if (!isCardMode || activeTab !== 'card') return;
-
-    if (pendingImageSrc.current) {
-      // A new image was uploaded while on Full tab — load it fresh (resets scale/offset)
-      setCardImageSrc(pendingImageSrc.current);
-      pendingImageSrc.current = null;
-      // canvasReady will be set by the image-load useEffect below
-    } else if (imgRef.current) {
-      // Same image — canvas just remounted. Re-draw with the preserved scale & offset.
-      // setTimeout(0) lets React finish rendering the canvas element into the DOM first.
-      setTimeout(() => {
-        if (canvasRef.current && imgRef.current) {
-          draw(scale, offset.x, offset.y);
-        }
-      }, 0);
-    }
-  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
@@ -261,15 +237,7 @@ const ImageEditor = ({
     if (isCardMode) {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        const dataUrl = ev.target.result;
-        if (activeTab === 'card') {
-          // Currently on card tab — load into canvas immediately
-          setCardImageSrc(dataUrl);
-        } else {
-          // On full tab — store src; canvas will load it when user switches to card tab
-          pendingImageSrc.current = dataUrl;
-          setCardImageSrc(dataUrl); // also set so full preview updates
-        }
+        setCardImageSrc(ev.target.result);
         setCardOriginalFile(file);
       };
       reader.readAsDataURL(file);
@@ -339,41 +307,6 @@ const ImageEditor = ({
         setUploading(false);
       }
     }, 'image/jpeg', 0.93);
-  };
-
-  // ── FULL VIEW: Save from Full Profile tab (uploads original, keeps existing crop) ──
-  const handleFullViewSave = async () => {
-    if (!cardOriginalFile) {
-      setError('No new image selected. Upload an image first.');
-      return;
-    }
-    setUploading(true);
-    setError('');
-    try {
-      const timestamp = Date.now();
-      const ext = cardOriginalFile.name.split('.').pop() || 'jpg';
-      const fullFileName = `${timestamp}-${userId}-full.${ext}`;
-      const { error: fullErr } = await supabase.storage
-        .from('photos').upload(fullFileName, cardOriginalFile, { upsert: false, contentType: cardOriginalFile.type });
-      if (fullErr) throw new Error(`Full image upload failed: ${fullErr.message}`);
-      const fullPublicUrl = supabase.storage.from('photos').getPublicUrl(fullFileName).data.publicUrl;
-
-      // Update photo_url; keep existing cropped_photo_url untouched
-      await updateAdminProfile({ userId, updateData: { photo_url: fullPublicUrl }, table: 'user_details' });
-      // Sync image_url in entities_master
-      await updateAdminProfile({ userId, updateData: { image_url: fullPublicUrl }, table: 'entities_master' });
-
-      // Clean up old full image if replacing
-      if (oldFullUrl) await safeRemoveStorageFiles([oldFullUrl]);
-
-      if (onSave) onSave({ fullUrl: fullPublicUrl, croppedUrl: oldCroppedUrl });
-      onClose();
-    } catch (err) {
-      console.error('Full view save error:', err);
-      setError(err.message || 'Failed to upload image.');
-    } finally {
-      setUploading(false);
-    }
   };
 
   // ── PROFILE MODE: Direct Upload ─────────────────────────────────────────────
@@ -450,26 +383,8 @@ const ImageEditor = ({
 
           <div className="img-editor-body">
 
-            {/* ─── TABS: Card View vs Full View ─── */}
-            {isCardMode && (
-              <div className="img-editor-tabs">
-                <button 
-                  className={`img-editor-tab ${activeTab === 'card' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('card')}
-                >
-                  Lexicon Card View
-                </button>
-                <button 
-                  className={`img-editor-tab ${activeTab === 'full' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('full')}
-                >
-                  Full Profile View
-                </button>
-              </div>
-            )}
-
             {/* ─── CARD MODE: inline crop canvas ─── */}
-            {isCardMode && activeTab === 'card' && cardImageSrc && (
+            {isCardMode && cardImageSrc && (
               <>
                 <div className="img-crop-canvas-wrap">
                   {!canvasReady && <div className="img-crop-loading">Loading image…</div>}
@@ -539,16 +454,6 @@ const ImageEditor = ({
                   )}
                 </div>
               </>
-            )}
-
-            {/* ─── FULL VIEW MODE: show full uploaded image ─── */}
-            {isCardMode && activeTab === 'full' && (cardImageSrc || fullPhotoUrl) && (
-              <div className="img-editor-current-preview">
-                <span className="img-editor-current-label">Full Profile Image Preview</span>
-                <div className="img-editor-current-frame" style={{ maxHeight: '400px', overflow: 'hidden' }}>
-                  <img src={cardImageSrc || fullPhotoUrl} alt="Full" className="img-editor-current-img" style={{ objectFit: 'contain' }} />
-                </div>
-              </div>
             )}
 
             {/* ─── CARD MODE: no image yet — dropzone ─── */}
@@ -631,18 +536,9 @@ const ImageEditor = ({
             <div className="img-editor-footer-right">
               <button className="img-editor-btn img-editor-btn--cancel" onClick={handleAttemptClose} disabled={uploading}>Cancel</button>
 
-              {/* Card tab save — crops via canvas */}
-              {isCardMode && activeTab === 'card' && cardImageSrc && (
+              {/* Card mode save — crops via canvas */}
+              {isCardMode && cardImageSrc && (
                 <button className="img-editor-btn img-editor-btn--save" onClick={handleCardSave} disabled={uploading || !canvasReady}>
-                  {uploading ? (<><div className="img-editor-spinner" /> Uploading…</>) : (
-                    <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg> Save Photo</>
-                  )}
-                </button>
-              )}
-
-              {/* Full Profile tab save — saves original file only */}
-              {isCardMode && activeTab === 'full' && cardOriginalFile && (
-                <button className="img-editor-btn img-editor-btn--save" onClick={handleFullViewSave} disabled={uploading}>
                   {uploading ? (<><div className="img-editor-spinner" /> Uploading…</>) : (
                     <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg> Save Photo</>
                   )}
