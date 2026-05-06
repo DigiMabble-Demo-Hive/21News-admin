@@ -345,7 +345,11 @@ const ImageEditor = ({
   if (!isOpen) return null;
 
   const hasCurrentImage = Boolean(currentImageUrl);
-  const fullPhotoUrl = isCardMode ? (oldFullUrl || currentImageUrl) : null;
+  // When a new file is selected locally, show it in the Full Photo preview.
+  // Only fall back to the saved DB URL when no new file has been picked.
+  const fullPhotoUrl = isCardMode
+    ? (cardOriginalFile ? cardImageSrc : (oldFullUrl || currentImageUrl))
+    : null;
 
   // ── RENDER ──────────────────────────────────────────────────────────────────
   return (
