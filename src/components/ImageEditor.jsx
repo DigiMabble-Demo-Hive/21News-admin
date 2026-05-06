@@ -122,22 +122,23 @@ const ImageEditor = ({
     }
   }, [isOpen]);
 
-  // ── Re-load canvas when switching back to Card tab ──────────────────────────
+  // ── Re-draw canvas when switching back to Card tab ──────────────────────────
   useEffect(() => {
-    if (!isCardMode) return;
-    if (activeTab === 'card') {
-      // Canvas just re-mounted; reset ready flag so the load effect re-runs
-      setCanvasReady(false);
-      // If there's a pending src from a Full-tab upload, apply it now
-      if (pendingImageSrc.current) {
-        setCardImageSrc(pendingImageSrc.current);
-        pendingImageSrc.current = null;
-      } else if (cardImageSrc) {
-        // Force reload by toggling src
-        const src = cardImageSrc;
-        setCardImageSrc(null);
-        setTimeout(() => setCardImageSrc(src), 0);
-      }
+    if (!isCardMode || activeTab !== 'card') return;
+
+    if (pendingImageSrc.current) {
+      // A new image was uploaded while on Full tab — load it fresh (resets scale/offset)
+      setCardImageSrc(pendingImageSrc.current);
+      pendingImageSrc.current = null;
+      // canvasReady will be set by the image-load useEffect below
+    } else if (imgRef.current) {
+      // Same image — canvas just remounted. Re-draw with the preserved scale & offset.
+      // setTimeout(0) lets React finish rendering the canvas element into the DOM first.
+      setTimeout(() => {
+        if (canvasRef.current && imgRef.current) {
+          draw(scale, offset.x, offset.y);
+        }
+      }, 0);
     }
   }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
