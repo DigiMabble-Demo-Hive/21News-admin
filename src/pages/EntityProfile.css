@@ -1260,6 +1260,39 @@
   transform: scale(1.1);
 }
 
+/* ── Profile Image Edit FAB ──────────────────────────────────────────────── */
+.profile-image-edit-fab {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1E3A5F 0%, #2563EB 100%);
+  color: white;
+  border: 2.5px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 4px 16px rgba(30, 58, 95, 0.45), 0 0 0 0 rgba(37, 99, 235, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: fabPulse 2.8s ease-in-out infinite;
+}
+
+@keyframes fabPulse {
+  0%, 100% { box-shadow: 0 4px 16px rgba(30, 58, 95, 0.45), 0 0 0 0 rgba(37, 99, 235, 0.4); }
+  50%       { box-shadow: 0 4px 20px rgba(30, 58, 95, 0.5), 0 0 0 6px rgba(37, 99, 235, 0); }
+}
+
+.profile-image-edit-fab:hover {
+  transform: scale(1.12) translateY(-1px);
+  box-shadow: 0 8px 24px rgba(30, 58, 95, 0.55);
+  background: linear-gradient(135deg, #152B47 0%, #1D4ED8 100%);
+  animation: none;
+}
+
 /* ============ ADMIN-ONLY STYLES ============ */
 .admin-edit-bar {
   display: flex;

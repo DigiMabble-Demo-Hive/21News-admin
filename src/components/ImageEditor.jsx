@@ -374,7 +374,7 @@ const ImageEditor = ({
           <div className="img-editor-header">
             <div className="img-editor-header-copy">
               <h3>{title}</h3>
-              <p>{isCardMode && cardImageSrc ? 'Drag to reposition · Slide to zoom · Fixed 480×300' : description}</p>
+              <p>{isCardMode && cardImageSrc ? 'Drag to reposition · Slide to zoom · Fixed 480×300 pixel' : description}</p>
             </div>
             <button className="img-editor-close" onClick={handleAttemptClose}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -504,7 +504,7 @@ const ImageEditor = ({
               </div>
             )}
 
-            {/* Upload New button — always visible when there's already an image */}
+            {/* Upload New + Delete buttons — always visible when there's already an image */}
             {((isCardMode && cardImageSrc) || (!isCardMode && (hasCurrentImage || previewUrl))) && (
               <div className="img-editor-action-buttons">
                 <label className="img-editor-upload-btn">
@@ -514,29 +514,31 @@ const ImageEditor = ({
                   {isCardMode ? 'Upload New Image' : (hasCurrentImage ? 'Upload New Image' : 'Choose Different Image')}
                   <input type="file" accept="image/*" onChange={handleFileSelect} hidden />
                 </label>
+
+                {/* Delete button — placed inline next to Upload */}
+                {hasCurrentImage && onDelete && (
+                  confirmDelete ? (
+                    <div className="img-editor-delete-confirm">
+                      <span>Delete this image?</span>
+                      <button className="img-editor-btn img-editor-btn--delete-yes" onClick={handleDelete} disabled={uploading}>Yes, delete</button>
+                      <button className="img-editor-btn img-editor-btn--cancel" onClick={() => setConfirmDelete(false)} disabled={uploading}>No</button>
+                    </div>
+                  ) : (
+                    <button className="img-editor-btn img-editor-btn--delete" onClick={() => setConfirmDelete(true)} disabled={uploading}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                      </svg>
+                      Delete Image
+                    </button>
+                  )
+                )}
               </div>
             )}
           </div>
 
           {/* Footer */}
           <div className="img-editor-footer">
-            {hasCurrentImage && onDelete && (
-              confirmDelete ? (
-                <div className="img-editor-delete-confirm">
-                  <span>Delete this image?</span>
-                  <button className="img-editor-btn img-editor-btn--delete-yes" onClick={handleDelete} disabled={uploading}>Yes, delete</button>
-                  <button className="img-editor-btn img-editor-btn--cancel" onClick={() => setConfirmDelete(false)} disabled={uploading}>No</button>
-                </div>
-              ) : (
-                <button className="img-editor-btn img-editor-btn--delete" onClick={() => setConfirmDelete(true)} disabled={uploading}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                    <path d="M10 11v6M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                  </svg>
-                  Delete Image
-                </button>
-              )
-            )}
             <div className="img-editor-footer-right">
               <button className="img-editor-btn img-editor-btn--cancel" onClick={handleAttemptClose} disabled={uploading}>Cancel</button>
 
