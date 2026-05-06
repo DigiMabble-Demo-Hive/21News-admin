@@ -132,16 +132,9 @@ const EntityProfile = () => {
   }, [profile]);
 
   useEffect(() => {
-    if (!profile) return;
-    const photos = [profile.image_url, profile.hero_image_url, profile.hq_image_url].filter(Boolean);
-    if (photos.length <= 1) return;
-
-    const interval = setInterval(() => {
-      setSelectedPhoto(prev => (prev + 1) % photos.length);
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [profile]);
+    // Only the actively managed photo is used in the hero — no need for a slideshow timer
+    setSelectedPhoto(0);
+  }, [lexiconFullUrl]);
 
   useEffect(() => {
     if (!profile?.user_id) return;
@@ -271,7 +264,9 @@ const EntityProfile = () => {
   const videos = profile.videos || [];
   const pubs = profile.publications || [];
   const quickFacts = profile.quick_facts || [];
-  const photos = [lexiconFullUrl, profile.hero_image_url, profile.hq_image_url].filter(Boolean);
+  // Only show the actively managed photo in the hero — hero_image_url/hq_image_url are not
+  // cleared on delete, so they must not be used as fallbacks here.
+  const photos = [lexiconFullUrl].filter(Boolean);
   const lastUpdated = profile.updated_at
     ? new Date(profile.updated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : '';
@@ -287,7 +282,10 @@ const EntityProfile = () => {
     if (editingImageTarget === 'profile') {
       setProfile(prev => ({ ...prev, image_url: result }));
     } else {
-      if (result.fullUrl) setLexiconFullUrl(result.fullUrl);
+      if (result.fullUrl) {
+        setLexiconFullUrl(result.fullUrl);
+        setProfile(prev => ({ ...prev, image_url: result.fullUrl }));
+      }
       if (result.croppedUrl) setLexiconCroppedUrl(result.croppedUrl);
     }
   };
