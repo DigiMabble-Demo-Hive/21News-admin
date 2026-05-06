@@ -89,9 +89,6 @@ const ImageEditor = ({
   const [dragging, setDragging] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
 
-  // Lightbox for full photo
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-
   const previewW = 160;
   const previewH = Math.round(160 * (CROP_H / CROP_W));
 
@@ -105,7 +102,6 @@ const ImageEditor = ({
       setCardImageSrc(null);
       setCardOriginalFile(null);
       setCanvasReady(false);
-      setLightboxOpen(false);
       return;
     }
     // Card mode: load existing image into canvas on open
@@ -345,29 +341,10 @@ const ImageEditor = ({
   if (!isOpen) return null;
 
   const hasCurrentImage = Boolean(currentImageUrl);
-  // When a new file is selected locally, show it in the Full Photo preview.
-  // Only fall back to the saved DB URL when no new file has been picked.
-  const fullPhotoUrl = isCardMode
-    ? (cardOriginalFile ? cardImageSrc : (oldFullUrl || currentImageUrl))
-    : null;
 
   // ── RENDER ──────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Full photo lightbox */}
-      {lightboxOpen && fullPhotoUrl && (
-        <div className="img-lightbox-overlay" onClick={() => setLightboxOpen(false)}>
-          <div className="img-lightbox-panel" onClick={(e) => e.stopPropagation()}>
-            <button className="img-lightbox-close" onClick={() => setLightboxOpen(false)} aria-label="Close">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-            <img src={fullPhotoUrl} alt="Full resolution" className="img-lightbox-img" />
-          </div>
-        </div>
-      )}
-
       {/* Main editor modal */}
       <div className="img-editor-overlay" onClick={handleAttemptClose}>
         <div className={`img-editor-modal ${isCardMode && cardImageSrc ? 'img-editor-modal--wide' : ''}`} onClick={(e) => e.stopPropagation()}>
@@ -438,30 +415,12 @@ const ImageEditor = ({
                       <canvas ref={previewCanvasRef} width={previewW} height={previewH} className="img-crop-preview-canvas" />
                     </div>
                   </div>
-                  {fullPhotoUrl && (
-                    <div className="img-crop-preview-item">
-                      <span className="img-crop-preview-label">Full Photo</span>
-                      <div
-                        className="img-crop-preview-full-frame"
-                        onClick={() => setLightboxOpen(true)}
-                        title="Click to view full size"
-                      >
-                        <img src={fullPhotoUrl} alt="Full" className="img-crop-preview-full-img" />
-                        <div className="img-crop-expand-icon">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" />
-                            <line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" />
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </>
             )}
 
             {/* ─── CARD MODE: no image yet — dropzone ─── */}
-            {isCardMode && !cardImageSrc && !fullPhotoUrl && (
+            {isCardMode && !cardImageSrc && (
               <div className="img-editor-upload-area">
                 <label className="img-editor-dropzone">
                   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

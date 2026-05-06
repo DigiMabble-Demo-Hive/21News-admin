@@ -396,7 +396,7 @@ const EntityProfile = () => {
           onDelete={handleImageDelete}
           tableName={editingImageTarget === 'profile' ? 'entities_master' : 'user_details'}
           columnName={editingImageTarget === 'profile' ? 'image_url' : 'photo_url'}
-          title={editingImageTarget === 'profile' ? 'Upload Profile Image' : 'Manage Profile & Card Images'}
+          title={editingImageTarget === 'profile' ? 'Upload Profile Image' : 'Edit Card Image'}
           description={editingImageTarget === 'profile' ? 'Upload the main hero image for this entity profile.' : 'Upload your photo. We will save both the full-resolution image and the cropped card version.'}
         />
       )}
