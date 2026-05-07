@@ -4,6 +4,7 @@ import AdminLayout from './layouts/AdminLayout';
 import Login from './pages/Login';
 import Lexicon from './pages/Lexicon';
 import EntityProfile from './pages/EntityProfile';
+import Approval from './pages/Approval';
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route element={<AdminLayout />}>
             <Route path="/lexicon" element={<Lexicon />} />
+            <Route path="/approval" element={<Approval />} />
             <Route path="/entity/:id" element={<EntityProfile />} />
           </Route>
           <Route path="*" element={<Navigate to="/lexicon" replace />} />

@@ -5,6 +5,7 @@ import ShareModal from '../components/ShareModal';
 import { supabase } from '../lib/supabase';
 
 const tabs = ['All', 'People', 'Organizations'];
+const PAGE_SIZE = 8;
 
 const isMissingSlugColumnError = (error) => {
   const message = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
@@ -18,14 +19,15 @@ const Lexicon = () => {
   const [statusFilter, setStatusFilter] = useState('All Statuses');
   const [entities, setEntities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
   // Share state
   const [shareEntity, setShareEntity] = useState(null);
 
   async function fetchEntities() {
     setLoading(true);
-    const entitiesSelectWithSlug = 'user_id, entity_slug, name, role, location, badge, entity_type, authority_score, image_url, subtitle, bio, sector, company, is_premium, verified_awards_count, awards';
-    const entitiesSelectFallback = 'user_id, name, role, location, badge, entity_type, authority_score, image_url, subtitle, bio, sector, company, is_premium, verified_awards_count, awards';
+    const entitiesSelectWithSlug = 'user_id, entity_slug, name, role, location, badge, entity_type, authority_score, image_url, sector, company, is_premium, updated_at';
+    const entitiesSelectFallback = 'user_id, name, role, location, badge, entity_type, authority_score, image_url, sector, company, is_premium, updated_at';
 
     let entitiesResult = await supabase
       .from('entities_master')
@@ -92,26 +94,24 @@ const Lexicon = () => {
   }).filter(Boolean))];
 
   const filteredEntities = entities.filter((e) => {
-    // Search filter
     if (search && !e.name.toLowerCase().includes(search.toLowerCase())) return false;
-
-    // Tab filter
     if (activeTab === 'People' && e.entity_type !== 'person') return false;
     if (activeTab === 'Organizations' && e.entity_type !== 'organization') return false;
-
-    // Country filter
     if (country !== 'All Countries') {
       const loc = e.location || '';
       if (!loc.toLowerCase().includes(country.toLowerCase())) return false;
     }
-
-    // Status filter
     if (statusFilter !== 'All Statuses') {
       if (e.badge !== statusFilter.toLowerCase()) return false;
     }
-
     return true;
   });
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setPage(1); }, [search, activeTab, country, statusFilter]);
+
+  const totalPages   = Math.ceil(filteredEntities.length / PAGE_SIZE);
+  const paginatedEntities = filteredEntities.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div>
@@ -213,25 +213,64 @@ const Lexicon = () => {
         ) : filteredEntities.length === 0 ? (
           <div className="lexicon-loading">No entities found.</div>
         ) : (
-          <div className="lexicon-grid">
-            {filteredEntities.map((entity) => (
-              <div key={entity.user_id} className="lexicon-entity-wrapper">
-                <EntityCard
-                  user_id={entity.user_id}
-                  entitySlug={entity.entity_slug}
-                  image={entity.card_photo_url || entity.image_url}
-                  name={entity.name}
-                  badge={entity.badge}
-                  role={entity.role}
-                  location={entity.location}
-                  authorityScore={entity.authority_score}
-                  company={entity.company}
-                  sourceCount={entity.source_count}
-                  onShare={() => setShareEntity(entity)}
-                />
+          <>
+            <div className="lexicon-grid">
+              {paginatedEntities.map((entity) => (
+                <div key={entity.user_id} className="lexicon-entity-wrapper">
+                  <EntityCard
+                    user_id={entity.user_id}
+                    entitySlug={entity.entity_slug}
+                    image={entity.card_photo_url || entity.image_url}
+                    name={entity.name}
+                    badge={entity.badge}
+                    role={entity.role}
+                    location={entity.location}
+                    authorityScore={entity.authority_score}
+                    company={entity.company}
+                    entityType={entity.entity_type}
+                    sector={entity.sector}
+                    updatedAt={entity.updated_at}
+                    isPremium={entity.is_premium}
+                    onShare={() => setShareEntity(entity)}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="lexicon-pagination">
+                <button
+                  className="lexicon-page-btn"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    className={`lexicon-page-btn${page === p ? ' active' : ''}`}
+                    onClick={() => setPage(p)}
+                  >
+                    {p}
+                  </button>
+                ))}
+
+                <button
+                  className="lexicon-page-btn"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -25,9 +25,7 @@
 
 /* Search & Filters */
 .lexicon-filters {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  padding: 32px 24px 0;
+  padding: 32px 32px 0;
 }
 
 .lexicon-search {
@@ -163,15 +161,13 @@
 
 /* Entity Grid */
 .lexicon-results {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  padding: 0 24px 72px;
+  padding: 0 32px 72px;
 }
 
 .lexicon-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 28px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 24px;
 }
 
 /* Pagination */
@@ -205,17 +201,17 @@
   border-color: var(--primary-blue);
 }
 
-.lexicon-page-btn:not(.active):hover {
+.lexicon-page-btn:not(.active):not(:disabled):hover {
   border-color: var(--primary-blue);
   color: var(--primary-blue);
 }
 
-@media (max-width: 900px) {
-  .lexicon-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-  }
+.lexicon-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 
+@media (max-width: 900px) {
   .lexicon-dropdowns {
     grid-template-columns: 1fr 1fr;
   }
@@ -234,10 +230,6 @@
 }
 
 @media (max-width: 600px) {
-  .lexicon-grid {
-    grid-template-columns: 1fr;
-  }
-
   .lexicon-dropdowns {
     grid-template-columns: 1fr;
   }

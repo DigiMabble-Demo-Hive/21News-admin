@@ -6,6 +6,7 @@ import { trackProfileEvent } from '../lib/profileAnalytics';
 import ShareModal from '../components/ShareModal';
 import EditableProfile from '../components/EditableProfile';
 import ImageEditor, { extractStorageFile } from '../components/ImageEditor';
+import ToastContainer, { useToast } from '../components/Toast';
 import { generateJsonLd } from '../utils/jsonLdGenerator';
 import './EntityProfile.css';
 
@@ -98,6 +99,7 @@ const EntityProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
+  const { toasts, toast, dismiss } = useToast();
   const [lexiconFullUrl, setLexiconFullUrl] = useState(null);
   const [lexiconCroppedUrl, setLexiconCroppedUrl] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -275,6 +277,7 @@ const EntityProfile = () => {
   const handleEditSave = (updatedProfile) => {
     setProfile(updatedProfile);
     setIsEditing(false);
+    toast('Profile saved successfully', 'success');
   };
 
   // Handle image save
@@ -288,6 +291,7 @@ const EntityProfile = () => {
       }
       if (result.croppedUrl) setLexiconCroppedUrl(result.croppedUrl);
     }
+    toast('Image updated successfully', 'success');
   };
 
   // Handle image delete (called from inside ImageEditor)
@@ -340,8 +344,10 @@ const EntityProfile = () => {
         setProfile(prev => ({ ...prev, image_url: null }));
       }
       setEditingImageTarget(null);
+      toast('Image removed', 'info');
     } catch (err) {
       console.error('Failed to delete image:', err);
+      toast(`Failed to remove image: ${err.message}`, 'error');
       throw err;
     }
   };
@@ -921,6 +927,8 @@ const EntityProfile = () => {
           </div>
         </div>
       )}
+
+      <ToastContainer toasts={toasts} dismiss={dismiss} />
     </div>
   );
 };
