@@ -6,6 +6,7 @@ import Lexicon from './pages/Lexicon';
 import EntityProfile from './pages/EntityProfile';
 import Approval from './pages/Approval';
 import FeaturedContent from './pages/FeaturedContent';
+import ContactSubmissions from './pages/ContactSubmissions';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
             <Route path="/lexicon" element={<Lexicon />} />
             <Route path="/approval" element={<Approval />} />
             <Route path="/featured" element={<FeaturedContent />} />
+            <Route path="/contact" element={<ContactSubmissions />} />
             <Route path="/entity/:id" element={<EntityProfile />} />
           </Route>
           <Route path="*" element={<Navigate to="/lexicon" replace />} />
