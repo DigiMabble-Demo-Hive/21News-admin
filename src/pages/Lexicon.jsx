@@ -41,26 +41,32 @@ const Lexicon = () => {
         .order('authority_score', { ascending: false });
     }
 
-    const { data: sourceRows, error: sourcesError } = await supabase
-      .from('google_search_sources')
-      .select('user_id');
-
-    const { data: cardPhotoRows, error: cardPhotosError } = await supabase
-      .from('user_details')
-      .select('user_id, cropped_photo_url');
+    const [
+      { data: sourceRows,   error: sourcesError   },
+      { data: cardPhotoRows, error: cardPhotosError },
+      { data: orgRows,      error: orgError        },
+      { data: orgPhotoRows, error: orgPhotosError  },
+    ] = await Promise.all([
+      supabase.from('google_search_sources').select('user_id'),
+      supabase.from('user_details').select('user_id, cropped_photo_url'),
+      supabase
+        .from('master_organization_entities')
+        .select('user_id, organization_name, industry, location, is_premium, authority_score, updated_at, tagline')
+        .order('authority_score', { ascending: false }),
+      supabase
+        .from('organization_details')
+        .select('user_id, cropped_profile_picture_url, profile_picture_url'),
+    ]);
 
     const { data, error } = entitiesResult;
 
     console.log('Supabase response:', { data, error });
-    if (error) {
-      console.error('Supabase error:', error);
-    }
-    if (sourcesError) {
-      console.error('Supabase source count error:', sourcesError);
-    }
-    if (cardPhotosError) {
-      console.error('Supabase card photo error:', cardPhotosError);
-    }
+    if (error)          console.error('Supabase error:', error);
+    if (sourcesError)   console.error('Supabase source count error:', sourcesError);
+    if (cardPhotosError) console.error('Supabase card photo error:', cardPhotosError);
+    if (orgError)       console.error('Supabase org error:', orgError);
+    if (orgPhotosError) console.error('Supabase org photo error:', orgPhotosError);
+
     if (data) {
       const sourceCountByUserId = (sourceRows || []).reduce((counts, row) => {
         counts[row.user_id] = (counts[row.user_id] || 0) + 1;
@@ -72,13 +78,36 @@ const Lexicon = () => {
         return photos;
       }, {});
 
-      setEntities(
-        data.map((entity) => ({
-          ...entity,
-          card_photo_url: cardPhotoByUserId[entity.user_id] || null,
-          source_count: sourceCountByUserId[entity.user_id] || 0,
-        }))
-      );
+      const orgPhotoByUserId = (orgPhotoRows || []).reduce((acc, row) => {
+        acc[row.user_id] = row.cropped_profile_picture_url || row.profile_picture_url || null;
+        return acc;
+      }, {});
+
+      const personEntities = data.map((entity) => ({
+        ...entity,
+        card_photo_url: cardPhotoByUserId[entity.user_id] || null,
+        source_count: sourceCountByUserId[entity.user_id] || 0,
+      }));
+
+      const orgEntities = (orgRows || []).map((org) => ({
+        user_id:       org.user_id,
+        entity_slug:   null,
+        name:          org.organization_name,
+        role:          org.tagline || '',
+        location:      org.location || '',
+        badge:         null,
+        entity_type:   'organization',
+        authority_score: org.authority_score,
+        image_url:     null,
+        sector:        org.industry || '',
+        company:       org.organization_name,
+        is_premium:    org.is_premium,
+        updated_at:    org.updated_at,
+        card_photo_url: orgPhotoByUserId[org.user_id] || null,
+        source_count:  0,
+      }));
+
+      setEntities([...personEntities, ...orgEntities]);
     }
     setLoading(false);
   }
