@@ -22,7 +22,8 @@ export default async function handler(req, res) {
     }
 
     const targetTable = table || 'entities_master';
-    if (!['entities_master', 'user_details'].includes(targetTable)) {
+    const ALLOWED_TABLES = ['entities_master', 'user_details', 'master_organization_entities', 'organization_details'];
+    if (!ALLOWED_TABLES.includes(targetTable)) {
       return res.status(400).json({ error: 'Invalid table specified' });
     }
 
@@ -39,8 +40,8 @@ export default async function handler(req, res) {
 
     if (error) throw error;
 
-    // Upsert guard: if update matched 0 rows on user_details, insert a new row
-    if ((!data || data.length === 0) && targetTable === 'user_details') {
+    // Upsert guard: if update matched 0 rows on user_details or organization_details, insert a new row
+    if ((!data || data.length === 0) && (targetTable === 'user_details' || targetTable === 'organization_details')) {
       const upsertResult = await supabaseClient
         .from(targetTable)
         .upsert({ user_id: userId, ...updateData }, { onConflict: 'user_id' })

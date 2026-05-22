@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import EditableOrganizationProfile from '../components/EditableOrganizationProfile';
+import ToastContainer, { useToast } from '../components/Toast';
 import './OrganizationProfile.css';
 
 // ============ INLINE ICONS ============
@@ -401,8 +403,10 @@ const VerifiedRelationships = ({ org }) => {
 // ============ MAIN PAGE ============
 const OrganizationProfile = () => {
   const { id } = useParams();
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [profile,   setProfile]   = useState(null);
+  const [loading,   setLoading]   = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const { toasts, toast, dismiss } = useToast();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -527,8 +531,35 @@ const OrganizationProfile = () => {
 
   const hasStory = org.story.mission || org.story.vision || org.story.marketPositioning || org.story.differentiators.length > 0;
 
+  if (isEditing) {
+    return (
+      <div className="op-page">
+        <EditableOrganizationProfile
+          profile={profile}
+          onSave={(updated) => {
+            setProfile(updated);
+            setIsEditing(false);
+            toast('Organization profile saved successfully', 'success');
+          }}
+          onCancel={() => setIsEditing(false)}
+        />
+        <ToastContainer toasts={toasts} dismiss={dismiss} />
+      </div>
+    );
+  }
+
   return (
     <div className="op-page">
+      {/* Admin Edit Button */}
+      <div className="admin-edit-bar">
+        <button className="admin-edit-btn" onClick={() => setIsEditing(true)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+          Edit Profile
+        </button>
+      </div>
       <HeroCover bannerUrl={org.bannerUrl} />
       <OrgHeader org={org} />
       {org.stats.length > 0 && <CredibilitySnapshot stats={org.stats} />}
@@ -538,6 +569,7 @@ const OrganizationProfile = () => {
       {org.leadership.length > 0 && <LeadershipGrid leadership={org.leadership} />}
       {features.verifiedRelationships && <VerifiedRelationships org={org} />}
       {org.socialLinks.length > 0 && <ConnectFollow socialLinks={org.socialLinks} />}
+      <ToastContainer toasts={toasts} dismiss={dismiss} />
     </div>
   );
 };
