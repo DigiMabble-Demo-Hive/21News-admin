@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { updateAdminProfile } from '../lib/adminProfileApi';
 import EditableOrganizationProfile from '../components/EditableOrganizationProfile';
+import ImageEditor, { extractStorageFile } from '../components/ImageEditor';
 import ToastContainer, { useToast } from '../components/Toast';
 import './OrganizationProfile.css';
 
@@ -90,7 +92,7 @@ const VerifiedBadge21 = () => (
   </span>
 );
 
-const HeroCover = ({ bannerUrl }) => (
+const HeroCover = ({ bannerUrl, onEditBanner }) => (
   <div className="op-hero">
     {bannerUrl ? (
       <img src={bannerUrl} alt="Organization Cover" className="op-hero__img" />
@@ -98,6 +100,14 @@ const HeroCover = ({ bannerUrl }) => (
       <div className="op-hero__img" style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #2C2F86 50%, #3730a3 100%)' }} />
     )}
     <div className="op-hero__overlay" />
+    {onEditBanner && (
+      <button className="op-img-edit-fab op-banner-edit-fab" onClick={onEditBanner} aria-label="Edit Banner Image" title="Edit Banner Image">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+      </button>
+    )}
   </div>
 );
 
@@ -122,7 +132,7 @@ const TrustPanel = ({ trust }) => {
   );
 };
 
-const OrgHeader = ({ org }) => {
+const OrgHeader = ({ org, onEditLogo }) => {
   const [ref, visible] = useScrollReveal();
   return (
     <section className="op-header-section">
@@ -130,7 +140,7 @@ const OrgHeader = ({ org }) => {
         <div ref={ref} className={`op-header-card ${visible ? 'op-reveal' : ''}`}>
           <div className="op-header-left">
             <div className="op-header-logo-row">
-              <div className="op-org-logo">
+              <div className="op-org-logo" style={{ position: 'relative' }}>
                 {org.profilePicture ? (
                   <img
                     src={org.profilePicture}
@@ -142,6 +152,14 @@ const OrgHeader = ({ org }) => {
                 <span style={{ display: org.profilePicture ? 'none' : 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
                   {getInitials(org.name)}
                 </span>
+                {onEditLogo && (
+                  <button className="op-img-edit-fab op-logo-edit-fab" onClick={onEditLogo} aria-label="Edit Logo" title="Edit Logo Image">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </button>
+                )}
               </div>
               <div className="op-header-badges">
                 {org.badges.map((b, i) => (
@@ -403,9 +421,14 @@ const VerifiedRelationships = ({ org }) => {
 // ============ MAIN PAGE ============
 const OrganizationProfile = () => {
   const { id } = useParams();
-  const [profile,   setProfile]   = useState(null);
-  const [loading,   setLoading]   = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
+  const [profile,          setProfile]          = useState(null);
+  const [loading,            setLoading]            = useState(true);
+  const [isEditing,          setIsEditing]          = useState(false);
+  const [editingImageTarget, setEditingImageTarget] = useState(null); // 'logo' | 'banner' | null
+  const [logoFullUrl,      setLogoFullUrl]      = useState(null);
+  const [logoCroppedUrl,   setLogoCroppedUrl]   = useState(null);
+  const [bannerFullUrl,    setBannerFullUrl]    = useState(null);
+  const [bannerCroppedUrl, setBannerCroppedUrl] = useState(null);
   const { toasts, toast, dismiss } = useToast();
 
   useEffect(() => {
@@ -435,6 +458,10 @@ const OrganizationProfile = () => {
       .maybeSingle();
 
     setProfile({ ...orgData, details: detailsData || {} });
+    setLogoFullUrl(detailsData?.profile_picture_url || null);
+    setLogoCroppedUrl(detailsData?.cropped_profile_picture_url || null);
+    setBannerFullUrl(detailsData?.banner_picture_url || null);
+    setBannerCroppedUrl(detailsData?.cropped_banner_picture_url || null);
     setLoading(false);
   };
 
@@ -516,8 +543,8 @@ const OrganizationProfile = () => {
     teamSize:       profile.team_size || '',
     website:        profile.channel_website || profile.website_url || '',
     email:          details.email_id || '',
-    profilePicture: details.cropped_profile_picture_url || details.profile_picture_url || null,
-    bannerUrl:      details.cropped_banner_picture_url  || details.banner_picture_url  || null,
+    profilePicture: logoCroppedUrl || logoFullUrl || null,
+    bannerUrl:      bannerCroppedUrl || bannerFullUrl || null,
     badges,
     trust:          { items: trustItems, authorityScore: profile.authority_score || 0 },
     stats,
@@ -548,9 +575,63 @@ const OrganizationProfile = () => {
     );
   }
 
+  const handleImageSave = (result) => {
+    const isLogo = editingImageTarget === 'logo';
+    if (isLogo) {
+      if (result.fullUrl) setLogoFullUrl(result.fullUrl);
+      if (result.croppedUrl) setLogoCroppedUrl(result.croppedUrl);
+    } else {
+      if (result.fullUrl) setBannerFullUrl(result.fullUrl);
+      if (result.croppedUrl) setBannerCroppedUrl(result.croppedUrl);
+    }
+    toast(`${isLogo ? 'Logo' : 'Banner'} image updated successfully`, 'success');
+  };
+
+  const handleImageDelete = async () => {
+    const isLogo = editingImageTarget === 'logo';
+    const urlsToDelete = isLogo
+      ? [logoFullUrl, logoCroppedUrl]
+      : [bannerFullUrl, bannerCroppedUrl];
+
+    const files = urlsToDelete.filter(Boolean).map(extractStorageFile).filter(Boolean);
+    const byBucket = files.reduce((acc, { bucket, filePath }) => {
+      acc[bucket] = acc[bucket] || [];
+      acc[bucket].push(filePath);
+      return acc;
+    }, {});
+    for (const [bucket, filePaths] of Object.entries(byBucket)) {
+      try { await supabase.storage.from(bucket).remove(filePaths); } catch (_) {}
+    }
+
+    if (isLogo) {
+      await updateAdminProfile({
+        userId: profile.user_id,
+        updateData: { profile_picture_url: null, cropped_profile_picture_url: null },
+        table: 'organization_details',
+      });
+      await updateAdminProfile({
+        userId: profile.user_id,
+        updateData: { image_url: null },
+        table: 'master_organization_entities',
+      });
+      setLogoFullUrl(null);
+      setLogoCroppedUrl(null);
+    } else {
+      await updateAdminProfile({
+        userId: profile.user_id,
+        updateData: { banner_picture_url: null, cropped_banner_picture_url: null },
+        table: 'organization_details',
+      });
+      setBannerFullUrl(null);
+      setBannerCroppedUrl(null);
+    }
+    setEditingImageTarget(null);
+    toast(`${isLogo ? 'Logo' : 'Banner'} image removed`, 'info');
+  };
+
   return (
     <div className="op-page">
-      {/* Admin Edit Button */}
+      {/* Admin Edit Bar */}
       <div className="admin-edit-bar">
         <button className="admin-edit-btn" onClick={() => setIsEditing(true)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -559,9 +640,48 @@ const OrganizationProfile = () => {
           </svg>
           Edit Profile
         </button>
+        <button className="admin-edit-btn" style={{ marginLeft: '12px', background: 'var(--surface-color, #fff)', color: 'var(--text-primary, #0f172a)', border: '1px solid var(--border-color, #e2e8f0)' }} onClick={() => setEditingImageTarget('logo')}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          Edit Logo
+        </button>
       </div>
-      <HeroCover bannerUrl={org.bannerUrl} />
-      <OrgHeader org={org} />
+
+      {/* Image Editor Modal */}
+      {editingImageTarget && (
+        <ImageEditor
+          key={`${profile.user_id}-${editingImageTarget}`}
+          isOpen={!!editingImageTarget}
+          onClose={() => setEditingImageTarget(null)}
+          currentImageUrl={editingImageTarget === 'logo'
+            ? (logoCroppedUrl || logoFullUrl)
+            : (bannerCroppedUrl || bannerFullUrl)
+          }
+          oldFullUrl={editingImageTarget === 'logo' ? logoFullUrl : bannerFullUrl}
+          oldCroppedUrl={editingImageTarget === 'logo' ? logoCroppedUrl : bannerCroppedUrl}
+          userId={profile.user_id}
+          onSave={handleImageSave}
+          onDelete={handleImageDelete}
+          tableName="organization_details"
+          columnName={editingImageTarget === 'logo' ? 'profile_picture_url' : 'banner_picture_url'}
+          croppedColumnName={editingImageTarget === 'logo' ? 'cropped_profile_picture_url' : 'cropped_banner_picture_url'}
+          cropMode={true}
+          cropWidth={editingImageTarget === 'logo' ? 480 : 960}
+          cropHeight={editingImageTarget === 'logo' ? 300 : 300}
+          syncTableName={editingImageTarget === 'logo' ? 'master_organization_entities' : undefined}
+          syncColumnName={editingImageTarget === 'logo' ? 'image_url' : undefined}
+          title={editingImageTarget === 'logo' ? 'Edit Logo Image' : 'Edit Banner Image'}
+          description={editingImageTarget === 'logo'
+            ? 'Upload and crop the organization logo. Used in Lexicon cards and the profile header.'
+            : 'Upload and crop the banner image. Maintains wide banner ratio.'
+          }
+        />
+      )}
+
+      <HeroCover bannerUrl={org.bannerUrl} onEditBanner={() => setEditingImageTarget('banner')} />
+      <OrgHeader org={org} onEditLogo={() => setEditingImageTarget('logo')} />
       {org.stats.length > 0 && <CredibilitySnapshot stats={org.stats} />}
       {features.trustedOrganizations && org.trustedOrganizations.length > 0 && <TrustedOrganizations orgs={org.trustedOrganizations} />}
       {org.services.length > 0 && <CoreServices services={org.services} />}

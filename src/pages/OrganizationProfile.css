@@ -50,6 +50,42 @@
   box-shadow: 0 6px 20px rgba(30, 58, 138, 0.35);
 }
 
+/* ============ IMAGE EDIT FABs ============ */
+.op-img-edit-fab {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.72);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-radius: 50%;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  transition: all 0.18s ease;
+  z-index: 10;
+}
+
+.op-img-edit-fab:hover {
+  background: rgba(30, 58, 138, 0.88);
+  transform: scale(1.08);
+  border-color: white;
+}
+
+.op-logo-edit-fab {
+  width: 30px;
+  height: 30px;
+  bottom: -4px;
+  right: -4px;
+}
+
+.op-banner-edit-fab {
+  width: 38px;
+  height: 38px;
+  top: 12px;
+  right: 16px;
+}
+
 /* ---- Page wrapper ---- */
 .op-page {
   background: #f8fafc;

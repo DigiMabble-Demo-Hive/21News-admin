@@ -3,8 +3,6 @@ import { supabase } from '../lib/supabase';
 import { updateAdminProfile } from '../lib/adminProfileApi';
 import './ImageEditor.css';
 
-const CROP_W = 480;
-const CROP_H = 300;
 const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
 
 /**
@@ -65,8 +63,16 @@ const ImageEditor = ({
   columnName = 'photo_url',
   title = 'Edit Image',
   description = '',
+  cropMode,
+  cropWidth = 480,
+  cropHeight = 300,
+  croppedColumnName,
+  syncTableName,
+  syncColumnName,
 }) => {
-  const isCardMode = tableName === 'user_details';
+  const CROP_W = cropWidth;
+  const CROP_H = cropHeight;
+  const isCardMode = cropMode !== undefined ? cropMode : tableName === 'user_details';
 
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -181,12 +187,15 @@ const ImageEditor = ({
   const onMouseDown = (e) => {
     e.preventDefault();
     setDragging(true);
-    dragRef.current = { startX: e.clientX, startY: e.clientY, ox: offset.x, oy: offset.y };
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const scaleX = rect ? CROP_W / rect.width : 1;
+    const scaleY = rect ? CROP_H / rect.height : 1;
+    dragRef.current = { startX: e.clientX, startY: e.clientY, ox: offset.x, oy: offset.y, scaleX, scaleY };
   };
   const onMouseMove = useCallback((e) => {
     if (!dragging || !dragRef.current) return;
-    const dx = e.clientX - dragRef.current.startX;
-    const dy = e.clientY - dragRef.current.startY;
+    const dx = (e.clientX - dragRef.current.startX) * (dragRef.current.scaleX || 1);
+    const dy = (e.clientY - dragRef.current.startY) * (dragRef.current.scaleY || 1);
     setOffset(clampOffset(dragRef.current.ox + dx, dragRef.current.oy + dy, scale));
   }, [dragging, scale, clampOffset]);
   const onMouseUp = () => setDragging(false);
@@ -195,14 +204,17 @@ const ImageEditor = ({
   const onTouchStart = (e) => {
     const t = e.touches[0];
     setDragging(true);
-    dragRef.current = { startX: t.clientX, startY: t.clientY, ox: offset.x, oy: offset.y };
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const scaleX = rect ? CROP_W / rect.width : 1;
+    const scaleY = rect ? CROP_H / rect.height : 1;
+    dragRef.current = { startX: t.clientX, startY: t.clientY, ox: offset.x, oy: offset.y, scaleX, scaleY };
   };
   const onTouchMove = useCallback((e) => {
     if (!dragging || !dragRef.current) return;
     e.preventDefault();
     const t = e.touches[0];
-    const dx = t.clientX - dragRef.current.startX;
-    const dy = t.clientY - dragRef.current.startY;
+    const dx = (t.clientX - dragRef.current.startX) * (dragRef.current.scaleX || 1);
+    const dy = (t.clientY - dragRef.current.startY) * (dragRef.current.scaleY || 1);
     setOffset(clampOffset(dragRef.current.ox + dx, dragRef.current.oy + dy, scale));
   }, [dragging, scale, clampOffset]);
   const onTouchEnd = () => setDragging(false);
@@ -276,17 +288,18 @@ const ImageEditor = ({
         if (cropErr) throw new Error(`Cropped upload failed: ${cropErr.message}`);
         croppedPublicUrl = supabase.storage.from('photos').getPublicUrl(croppedFileName).data.publicUrl;
 
+        const croppedColName = croppedColumnName || 'cropped_photo_url';
         const updateData = {};
-        if (fullPublicUrl) updateData.photo_url = fullPublicUrl;
-        updateData.cropped_photo_url = croppedPublicUrl;
+        if (fullPublicUrl) updateData[columnName] = fullPublicUrl;
+        updateData[croppedColName] = croppedPublicUrl;
         await updateAdminProfile({ userId, updateData, table: tableName });
 
         if (fullPublicUrl) {
-          await updateAdminProfile({
-            userId,
-            updateData: { image_url: fullPublicUrl },
-            table: 'entities_master'
-          });
+          if (syncTableName && syncColumnName) {
+            await updateAdminProfile({ userId, updateData: { [syncColumnName]: fullPublicUrl }, table: syncTableName });
+          } else if (tableName === 'user_details') {
+            await updateAdminProfile({ userId, updateData: { image_url: fullPublicUrl }, table: 'entities_master' });
+          }
         }
 
         const toClean = [];
@@ -367,7 +380,7 @@ const ImageEditor = ({
             {/* ─── CARD MODE: inline crop canvas ─── */}
             {isCardMode && cardImageSrc && (
               <>
-                <div className="img-crop-canvas-wrap">
+                <div className="img-crop-canvas-wrap" style={{ aspectRatio: `${CROP_W} / ${CROP_H}` }}>
                   {!canvasReady && <div className="img-crop-loading">Loading image…</div>}
                   <canvas
                     ref={canvasRef}
@@ -410,8 +423,8 @@ const ImageEditor = ({
                 {/* Preview strip */}
                 <div className="img-crop-preview-strip">
                   <div className="img-crop-preview-item">
-                    <span className="img-crop-preview-label">Card Preview</span>
-                    <div className="img-crop-preview-card-frame">
+                    <span className="img-crop-preview-label">Preview</span>
+                    <div className="img-crop-preview-card-frame" style={{ width: '160px', height: `${previewH}px` }}>
                       <canvas ref={previewCanvasRef} width={previewW} height={previewH} className="img-crop-preview-canvas" />
                     </div>
                   </div>
