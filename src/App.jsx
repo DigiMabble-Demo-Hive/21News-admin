@@ -8,7 +8,6 @@ import Approval from './pages/Approval';
 import FeaturedContent from './pages/FeaturedContent';
 import ContactSubmissions from './pages/ContactSubmissions';
 import OrganizationProfile from './pages/OrganizationProfile';
-
 function App() {
   return (
     <AuthProvider>
