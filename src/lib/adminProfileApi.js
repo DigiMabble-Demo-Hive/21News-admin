@@ -47,4 +47,22 @@ export const updateAdminProfile = async ({ userId, updateData, table }) => {
   return payload;
 };
 
+export const fetchAdminOrgProfiles = async () => {
+  const baseUrl = import.meta.env.VITE_ADMIN_API_BASE_URL?.trim();
+  const url = baseUrl
+    ? new URL('/api/admin-org-profiles', baseUrl).toString()
+    : '/api/admin-org-profiles';
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(text || `Request failed with status ${response.status}`);
+  }
+
+  const payload = await response.json();
+  if (payload?.error) throw new Error(payload.error);
+  return payload.data || [];
+};
+
 export { buildAdminApiUrl };

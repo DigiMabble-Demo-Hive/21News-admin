@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import './Approval.css';
 import { supabase } from '../lib/supabase';
-import { updateAdminProfile } from '../lib/adminProfileApi';
+import { updateAdminProfile, fetchAdminOrgProfiles } from '../lib/adminProfileApi';
 import ToastContainer, { useToast } from '../components/Toast';
 
 const STATUS_CHIPS = ['All', 'Pending', 'Approved', 'Archived'];
@@ -509,28 +509,19 @@ const Approval = () => {
     return (data || []).map((e) => ({
       ...e,
       card_photo_url: photoMap[e.user_id] || null,
+      approval_status: e.approval_status ? e.approval_status.toLowerCase() : undefined,
     }));
   };
 
-  /* ── fetch organisations from master_organization_entities ── */
+  /* ── fetch organisations via admin API (bypasses RLS on master_organization_entities) ── */
   const fetchOrgsData = async () => {
-    const coreSelect = 'user_id, organization_name, tagline, industry, location, is_premium, authority_score, updated_at, created_at';
-
-    let result = await supabase
-      .from('master_organization_entities')
-      .select(`${coreSelect}, approval_status, Payment_status`)
-      .order('organization_name', { ascending: true });
-
-    if (result.error && isMissingColumnError(result.error, 'approval_status', 'payment_status')) {
-      result = await supabase
-        .from('master_organization_entities')
-        .select(coreSelect)
-        .order('organization_name', { ascending: true });
-      console.warn('approval_status / Payment_status columns not found in master_organization_entities.');
+    let data;
+    try {
+      data = await fetchAdminOrgProfiles();
+    } catch (err) {
+      console.error('Organisations fetch error:', err);
+      return [];
     }
-
-    const { data, error } = result;
-    if (error) { console.error('Organisations fetch error:', error); return []; }
 
     const { data: orgPhotoRows } = await supabase
       .from('organization_details')
@@ -541,9 +532,10 @@ const Approval = () => {
       return acc;
     }, {});
 
-    return (data || []).map((e) => ({
+    return data.map((e) => ({
       ...e,
       card_photo_url: photoMap[e.user_id] || null,
+      approval_status: e.approval_status ? e.approval_status.toLowerCase() : undefined,
     }));
   };
 
