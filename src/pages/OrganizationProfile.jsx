@@ -172,6 +172,7 @@ const OrganizationProfile = () => {
   const [logoCroppedUrl,     setLogoCroppedUrl]     = useState(null);
   const [bannerFullUrl,      setBannerFullUrl]      = useState(null);
   const [bannerCroppedUrl,   setBannerCroppedUrl]   = useState(null);
+  const [entityCardUrl,      setEntityCardUrl]      = useState(null);
   const { toasts, toast, dismiss } = useToast();
 
   const diffInputRef    = useRef(null);
@@ -194,7 +195,7 @@ const OrganizationProfile = () => {
 
     const { data: detailsData } = await supabase
       .from('organization_details')
-      .select('profile_picture_url, banner_picture_url, cropped_profile_picture_url, cropped_banner_picture_url, Status, subscription, email_id')
+      .select('profile_picture_url, banner_picture_url, cropped_profile_picture_url, cropped_banner_picture_url, entity_card_picture_url, Status, subscription, email_id')
       .eq('user_id', orgData.user_id)
       .maybeSingle();
 
@@ -203,6 +204,7 @@ const OrganizationProfile = () => {
     setLogoCroppedUrl(detailsData?.cropped_profile_picture_url || null);
     setBannerFullUrl(detailsData?.banner_picture_url || null);
     setBannerCroppedUrl(detailsData?.cropped_banner_picture_url || null);
+    setEntityCardUrl(detailsData?.entity_card_picture_url || null);
     setLoading(false);
   };
 
@@ -351,20 +353,27 @@ const OrganizationProfile = () => {
 
   // ── Image callbacks ──
   const handleImageSave = (result) => {
-    const isLogo = editingImageTarget === 'logo';
-    if (isLogo) {
+    if (editingImageTarget === 'logo') {
       if (result.fullUrl)    setLogoFullUrl(result.fullUrl);
       if (result.croppedUrl) setLogoCroppedUrl(result.croppedUrl);
-    } else {
+      toast('Logo image updated successfully', 'success');
+    } else if (editingImageTarget === 'banner') {
       if (result.fullUrl)    setBannerFullUrl(result.fullUrl);
       if (result.croppedUrl) setBannerCroppedUrl(result.croppedUrl);
+      toast('Banner image updated successfully', 'success');
+    } else if (editingImageTarget === 'card') {
+      if (result.croppedUrl) setEntityCardUrl(result.croppedUrl);
+      toast('Entity card image updated successfully', 'success');
     }
-    toast(`${isLogo ? 'Logo' : 'Banner'} image updated successfully`, 'success');
   };
 
   const handleImageDelete = async () => {
-    const isLogo = editingImageTarget === 'logo';
-    const urlsToDelete = isLogo ? [logoFullUrl, logoCroppedUrl] : [bannerFullUrl, bannerCroppedUrl];
+    const target = editingImageTarget;
+    let urlsToDelete = [];
+    if (target === 'logo')   urlsToDelete = [logoFullUrl, logoCroppedUrl];
+    if (target === 'banner') urlsToDelete = [bannerFullUrl, bannerCroppedUrl];
+    if (target === 'card')   urlsToDelete = [entityCardUrl];
+
     const files = urlsToDelete.filter(Boolean).map(extractStorageFile).filter(Boolean);
     const byBucket = files.reduce((acc, { bucket, filePath }) => {
       acc[bucket] = acc[bucket] || [];
@@ -374,16 +383,22 @@ const OrganizationProfile = () => {
     for (const [bucket, filePaths] of Object.entries(byBucket)) {
       try { await supabase.storage.from(bucket).remove(filePaths); } catch (_) {}
     }
-    if (isLogo) {
+
+    if (target === 'logo') {
       await updateAdminProfile({ userId: profile.user_id, updateData: { profile_picture_url: null, cropped_profile_picture_url: null }, table: 'organization_details' });
       await updateAdminProfile({ userId: profile.user_id, updateData: { image_url: null }, table: 'master_organization_entities' });
       setLogoFullUrl(null); setLogoCroppedUrl(null);
-    } else {
+    } else if (target === 'banner') {
       await updateAdminProfile({ userId: profile.user_id, updateData: { banner_picture_url: null, cropped_banner_picture_url: null }, table: 'organization_details' });
       setBannerFullUrl(null); setBannerCroppedUrl(null);
+    } else if (target === 'card') {
+      await updateAdminProfile({ userId: profile.user_id, updateData: { entity_card_picture_url: null }, table: 'organization_details' });
+      setEntityCardUrl(null);
     }
+
     setEditingImageTarget(null);
-    toast(`${isLogo ? 'Logo' : 'Banner'} image removed`, 'info');
+    const label = target === 'logo' ? 'Logo' : target === 'banner' ? 'Banner' : 'Card';
+    toast(`${label} image removed`, 'info');
   };
 
   // ── Loading / not found ──
@@ -543,36 +558,77 @@ const OrganizationProfile = () => {
             </svg>
             Edit Logo
           </button>
+          <button
+            className="admin-edit-btn"
+            style={{ marginLeft: 12, background: 'var(--surface-color,#fff)', color: 'var(--text-primary,#0f172a)', border: '1px solid var(--border-color,#e2e8f0)' }}
+            onClick={() => setEditingImageTarget('card')}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="5" width="20" height="14" rx="2" ry="2"/>
+              <line x1="2" y1="10" x2="22" y2="10"/>
+            </svg>
+            Edit Card Image
+          </button>
         </div>
       )}
 
       {/* ── Image Editor Modal ── */}
-      {editingImageTarget && (
-        <ImageEditor
-          key={`${profile.user_id}-${editingImageTarget}`}
-          isOpen={!!editingImageTarget}
-          onClose={() => setEditingImageTarget(null)}
-          currentImageUrl={editingImageTarget === 'logo' ? (logoCroppedUrl || logoFullUrl) : (bannerCroppedUrl || bannerFullUrl)}
-          oldFullUrl={editingImageTarget === 'logo' ? logoFullUrl : bannerFullUrl}
-          oldCroppedUrl={editingImageTarget === 'logo' ? logoCroppedUrl : bannerCroppedUrl}
-          userId={profile.user_id}
-          onSave={handleImageSave}
-          onDelete={handleImageDelete}
-          tableName="organization_details"
-          columnName={editingImageTarget === 'logo' ? 'profile_picture_url' : 'banner_picture_url'}
-          croppedColumnName={editingImageTarget === 'logo' ? 'cropped_profile_picture_url' : 'cropped_banner_picture_url'}
-          cropMode={true}
-          cropWidth={editingImageTarget === 'logo' ? 480 : 960}
-          cropHeight={300}
-          syncTableName={editingImageTarget === 'logo' ? 'master_organization_entities' : undefined}
-          syncColumnName={editingImageTarget === 'logo' ? 'image_url' : undefined}
-          title={editingImageTarget === 'logo' ? 'Edit Logo Image' : 'Edit Banner Image'}
-          description={editingImageTarget === 'logo'
-            ? 'Upload and crop the organization logo. Used in Lexicon cards and the profile header.'
-            : 'Upload and crop the banner image. Maintains wide banner ratio.'
-          }
-        />
-      )}
+      {editingImageTarget && (() => {
+        const isCard   = editingImageTarget === 'card';
+        const isLogo   = editingImageTarget === 'logo';
+        const isBanner = editingImageTarget === 'banner';
+        return (
+          <ImageEditor
+            key={`${profile.user_id}-${editingImageTarget}`}
+            isOpen={!!editingImageTarget}
+            onClose={() => setEditingImageTarget(null)}
+            currentImageUrl={
+              isLogo   ? (logoCroppedUrl || logoFullUrl) :
+              isBanner ? (bannerCroppedUrl || bannerFullUrl) :
+                         (entityCardUrl || logoCroppedUrl || logoFullUrl)
+            }
+            oldFullUrl={
+              isLogo   ? logoFullUrl :
+              isBanner ? bannerFullUrl :
+                         null
+            }
+            oldCroppedUrl={
+              isLogo   ? logoCroppedUrl :
+              isBanner ? bannerCroppedUrl :
+                         entityCardUrl
+            }
+            userId={profile.user_id}
+            onSave={handleImageSave}
+            onDelete={handleImageDelete}
+            tableName="organization_details"
+            columnName={
+              isLogo   ? 'profile_picture_url' :
+              isBanner ? 'banner_picture_url' :
+                         'entity_card_picture_url'
+            }
+            croppedColumnName={
+              isLogo   ? 'cropped_profile_picture_url' :
+              isBanner ? 'cropped_banner_picture_url' :
+                         'entity_card_picture_url'
+            }
+            cropMode={true}
+            cropWidth={isBanner ? 960 : 480}
+            cropHeight={300}
+            syncTableName={isLogo ? 'master_organization_entities' : undefined}
+            syncColumnName={isLogo ? 'image_url' : undefined}
+            title={
+              isLogo   ? 'Edit Logo Image' :
+              isBanner ? 'Edit Banner Image' :
+                         'Edit Entity Card Image'
+            }
+            description={
+              isLogo   ? 'Upload and crop the organization logo. Displayed in the profile header.' :
+              isBanner ? 'Upload and crop the banner/cover image.' :
+                         'Crop the image shown in Lexicon entity cards on both websites. Saved separately from the logo.'
+            }
+          />
+        );
+      })()}
 
       {/* ── Hero Cover ── */}
       <HeroCover bannerUrl={org.bannerUrl} onEditBanner={() => setEditingImageTarget('banner')} />

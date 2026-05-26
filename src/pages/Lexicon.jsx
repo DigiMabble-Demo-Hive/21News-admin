@@ -55,7 +55,7 @@ const Lexicon = () => {
         .order('authority_score', { ascending: false }),
       supabase
         .from('organization_details')
-        .select('user_id, cropped_profile_picture_url, profile_picture_url'),
+        .select('user_id, entity_card_picture_url, cropped_profile_picture_url, profile_picture_url'),
     ]);
 
     const { data, error } = entitiesResult;
@@ -79,7 +79,10 @@ const Lexicon = () => {
       }, {});
 
       const orgPhotoByUserId = (orgPhotoRows || []).reduce((acc, row) => {
-        acc[row.user_id] = row.cropped_profile_picture_url || row.profile_picture_url || null;
+        acc[row.user_id] = row.entity_card_picture_url
+                        || row.cropped_profile_picture_url
+                        || row.profile_picture_url
+                        || null;
         return acc;
       }, {});
 
