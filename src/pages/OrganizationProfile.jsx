@@ -400,7 +400,23 @@ const OrganizationProfile = () => {
         ? profile.trusted_by.map((d) => (typeof d === 'string' ? d : d.name || ''))
         : [],
       core_services: Array.isArray(profile.core_services) ? profile.core_services.map((s) => ({ ...s })) : [],
-      leadership:    Array.isArray(profile.leadership)    ? profile.leadership.map((p) => ({ ...p }))    : [],
+      leadership: (() => {
+        const jsonb = Array.isArray(profile.leadership) ? profile.leadership.map((p) => ({ ...p })) : [];
+        const jsonbIds = new Set(jsonb.filter((p) => p.user_id).map((p) => p.user_id));
+        const live = livePersons
+          .filter((p) => p.user_id && !jsonbIds.has(p.user_id))
+          .map((p) => ({
+            user_id:     p.user_id,
+            name:        p.name        || '',
+            role:        p.role        || '',
+            expertise:   p.sector      || '',
+            image:       p.cropped_photo_url || p.image_url || '',
+            score:       p.authority_score  || '',
+            source:      'live',
+            entity_slug: p.entity_slug || '',
+          }));
+        return [...jsonb, ...live];
+      })(),
     });
     setSaveError('');
     setIsEditing(true);
@@ -1084,101 +1100,43 @@ const OrganizationProfile = () => {
               <>
                 <div className="op-section-edit-title-row">
                   <h2 className="op-section-title" style={{ marginBottom: 0 }}>Leadership &amp; Key People</h2>
-                  <div className="lp-header-actions">
-                    <button className="op-edit-add-btn ep-add-btn--primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#1E3A8A', color: '#fff', border: 'none' }} onClick={() => setPickerOpen(true)}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                      </svg>
-                      Pick from Lexicon
-                    </button>
-                    <button className="op-edit-add-btn" onClick={() => sfAddObj('leadership', { name: '', role: '', expertise: '', image: '', score: '', source: 'manual' })}>
-                      + Add Manually
-                    </button>
-                  </div>
+                  <button className="op-edit-add-btn ep-add-btn--primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#1E3A8A', color: '#fff', border: 'none' }} onClick={() => setPickerOpen(true)}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Pick from Lexicon
+                  </button>
                 </div>
 
-                {/* Lexicon picks */}
-                {(form.leadership || []).some((p) => p.source === 'lexicon') && (
-                  <>
-                    <p className="lp-group-label">From Lexicon</p>
-                    <div className="lp-lexicon-grid">
-                      {(form.leadership || []).map((person, realIdx) => {
-                        if (person.source !== 'lexicon') return null;
-                        const initials = (person.name || '').split(' ').filter(Boolean).map((w) => w[0]).join('').toUpperCase().slice(0, 2) || 'NA';
-                        return (
-                          <div key={person.user_id || realIdx} className="lp-mini-card">
-                            <div className="lp-mini-avatar">
-                              {person.image
-                                ? <img src={person.image} alt={person.name} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
-                                : null}
-                              <span style={{ display: person.image ? 'none' : 'flex' }}>{initials}</span>
-                            </div>
-                            <div className="lp-mini-info">
-                              <span className="lp-mini-name">{person.name || '—'}</span>
-                              {person.role && <span className="lp-mini-role">{person.role}</span>}
-                            </div>
-                            <span className="lp-mini-badge">Lexicon</span>
-                            <button className="lp-mini-remove" onClick={() => sfRemove('leadership', realIdx)}>×</button>
+                {(form.leadership || []).length > 0 ? (
+                  <div className="lp-lexicon-grid">
+                    {(form.leadership || []).map((person, realIdx) => {
+                      const initials = (person.name || '').split(' ').filter(Boolean).map((w) => w[0]).join('').toUpperCase().slice(0, 2) || 'NA';
+                      const badgeLabel = person.source === 'live' ? 'Live' : person.source === 'manual' ? 'Manual' : 'Lexicon';
+                      return (
+                        <div key={person.user_id || realIdx} className="lp-mini-card">
+                          <div className="lp-mini-avatar">
+                            {person.image
+                              ? <img src={person.image} alt={person.name} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+                              : null}
+                            <span style={{ display: person.image ? 'none' : 'flex' }}>{initials}</span>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-
-                {/* Manual entries */}
-                {(form.leadership || []).some((p) => p.source !== 'lexicon') && (
-                  <p className="lp-group-label" style={{ marginTop: (form.leadership || []).some((p) => p.source === 'lexicon') ? 16 : 0 }}>
-                    Manual Entries
-                  </p>
-                )}
-                <div className="op-edit-cards">
-                  {(form.leadership || []).map((person, realIdx) => {
-                    if (person.source === 'lexicon') return null;
-                    return (
-                      <div key={realIdx} className="op-edit-card">
-                        <button className="op-edit-card-remove" onClick={() => sfRemove('leadership', realIdx)}>&times;</button>
-                        <div className="op-inline-grid">
-                          <div className="op-inline-field">
-                            <label className="op-inline-label">Name</label>
-                            <input className="op-inline-input" value={person.name || ''} onChange={(e) => sfUpdateObj('leadership', realIdx, 'name', e.target.value)} placeholder="e.g. Jane Smith" />
+                          <div className="lp-mini-info">
+                            <span className="lp-mini-name">{person.name || '—'}</span>
+                            {person.role && <span className="lp-mini-role">{person.role}</span>}
                           </div>
-                          <div className="op-inline-field">
-                            <label className="op-inline-label">Role / Title</label>
-                            <input className="op-inline-input" value={person.role || ''} onChange={(e) => sfUpdateObj('leadership', realIdx, 'role', e.target.value)} placeholder="e.g. Co-Founder & CEO" />
-                          </div>
-                          <div className="op-inline-field op-inline-grid--full">
-                            <label className="op-inline-label">Expertise / Bio</label>
-                            <input className="op-inline-input" value={person.expertise || ''} onChange={(e) => sfUpdateObj('leadership', realIdx, 'expertise', e.target.value)} placeholder="e.g. 20 years in enterprise SaaS" />
-                          </div>
-                          <div className="op-inline-field">
-                            <label className="op-inline-label">Photo URL</label>
-                            <input className="op-inline-input" type="url" value={person.image || ''} onChange={(e) => sfUpdateObj('leadership', realIdx, 'image', e.target.value)} placeholder="https://..." />
-                          </div>
-                          <div className="op-inline-field">
-                            <label className="op-inline-label">Authority Score</label>
-                            <input className="op-inline-input" type="number" value={person.score || ''} onChange={(e) => sfUpdateObj('leadership', realIdx, 'score', e.target.value)} placeholder="e.g. 78" />
-                          </div>
+                          <span className="lp-mini-badge">{badgeLabel}</span>
+                          <button className="lp-mini-remove" onClick={() => sfRemove('leadership', realIdx)}>×</button>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {(form.leadership || []).length === 0 && (
+                      );
+                    })}
+                  </div>
+                ) : (
                   <p style={{ fontSize: 13, color: '#94a3b8', margin: '12px 0 4px' }}>
-                    No leadership members yet. Pick from the Lexicon or add manually.
+                    No leadership members yet. Pick from the Lexicon to add people.
                   </p>
                 )}
 
-                {/* Picker modal */}
-                {pickerOpen && (
-                  <LeadershipPickerModal
-                    currentIds={(form.leadership || []).filter((p) => p.user_id).map((p) => p.user_id)}
-                    onAdd={addLexiconPeople}
-                    onClose={() => setPickerOpen(false)}
-                  />
-                )}
               </>
             ) : (
               <>
@@ -1300,6 +1258,14 @@ const OrganizationProfile = () => {
             </div>
           </div>
         </section>
+      )}
+
+      {pickerOpen && (
+        <LeadershipPickerModal
+          currentIds={(form.leadership || []).filter((p) => p.user_id).map((p) => p.user_id)}
+          onAdd={addLexiconPeople}
+          onClose={() => setPickerOpen(false)}
+        />
       )}
 
       <ToastContainer toasts={toasts} dismiss={dismiss} />
