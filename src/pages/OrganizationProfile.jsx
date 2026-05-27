@@ -4,7 +4,9 @@ import { supabase } from '../lib/supabase';
 import { updateAdminProfile } from '../lib/adminProfileApi';
 import ImageEditor, { extractStorageFile } from '../components/ImageEditor';
 import ToastContainer, { useToast } from '../components/Toast';
+import LeadershipPickerModal from '../components/LeadershipPickerModal';
 import './OrganizationProfile.css';
+import '../components/LeadershipPickerModal.css';
 
 // ============ INLINE ICONS ============
 const Globe       = ({ size = 15 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>;
@@ -132,28 +134,42 @@ const TrustPanel = ({ trust }) => {
   );
 };
 
-const ProfileCard = ({ person }) => {
-  const initials = getInitials(person.name);
+const LeadershipCard = ({ user_id, entitySlug, name, role, sector, authorityScore, image }) => {
   const [imgError, setImgError] = useState(false);
+  const profilePath = `/entity/${entitySlug || user_id}`;
+  const canNavigate = !!(entitySlug || user_id);
+  const initials = (name || '').split(/\s+/).filter(Boolean).map((p) => p[0]).join('').toUpperCase().slice(0, 2) || 'NA';
   return (
-    <div className="op-profile-card">
-      <div className="op-profile-card__avatar-wrap">
-        {person.image && !imgError ? (
-          <img src={person.image} alt={person.name} className="op-profile-card__avatar" onError={() => setImgError(true)} />
+    <div className="op-lcard">
+      <div className="op-lcard__img-wrap">
+        {image && !imgError ? (
+          <img src={image} alt={name} className="op-lcard__img" onError={() => setImgError(true)} />
         ) : (
-          <div className="op-profile-card__avatar-fallback">{initials}</div>
+          <div className="op-lcard__img-fallback"><span>{initials}</span></div>
         )}
+        <span className="op-lcard__verified">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+          21NEWS Verified
+        </span>
       </div>
-      {person.verified && <VerifiedBadge21 />}
-      <h4 className="op-profile-card__name">{person.name}</h4>
-      <p className="op-profile-card__role">{person.role}</p>
-      {person.expertise && <p className="op-profile-card__expertise">{person.expertise}</p>}
-      {person.score && (
-        <div className="op-profile-card__score">
-          <Star size={13} fill="currentColor" />{person.score}
+      <h3 className="op-lcard__name">{name}</h3>
+      {role && <p className="op-lcard__role">{role}</p>}
+      {sector && <p className="op-lcard__sector">{sector}</p>}
+      {authorityScore > 0 && (
+        <div className="op-lcard__score">
+          <Star size={16} fill="#f59e0b" stroke="none" className="op-lcard__star" />
+          <span>{authorityScore}</span>
         </div>
       )}
-      <button className="op-profile-card__btn">View Profile</button>
+      <div className="op-lcard__footer">
+        {canNavigate ? (
+          <a href={profilePath} className="op-lcard__btn">View Profile</a>
+        ) : (
+          <span className="op-lcard__btn op-lcard__btn--disabled">Profile Not Listed</span>
+        )}
+      </div>
     </div>
   );
 };
@@ -162,11 +178,13 @@ const ProfileCard = ({ person }) => {
 const OrganizationProfile = () => {
   const { id } = useParams();
   const [profile,            setProfile]            = useState(null);
+  const [livePersons,        setLivePersons]        = useState([]);
   const [loading,            setLoading]            = useState(true);
   const [isEditing,          setIsEditing]          = useState(false);
   const [form,               setForm]               = useState({});
   const [saving,             setSaving]             = useState(false);
   const [saveError,          setSaveError]          = useState('');
+  const [pickerOpen,         setPickerOpen]         = useState(false);
   const [editingImageTarget, setEditingImageTarget] = useState(null);
   const [logoFullUrl,        setLogoFullUrl]        = useState(null);
   const [logoCroppedUrl,     setLogoCroppedUrl]     = useState(null);
@@ -185,6 +203,8 @@ const OrganizationProfile = () => {
 
   const fetchProfile = async () => {
     setLoading(true);
+    setLivePersons([]);
+
     const { data: orgData, error: orgError } = await supabase
       .from('master_organization_entities')
       .select('*')
@@ -198,6 +218,103 @@ const OrganizationProfile = () => {
       .select('profile_picture_url, banner_picture_url, cropped_profile_picture_url, cropped_banner_picture_url, entity_card_picture_url, Status, subscription, email_id')
       .eq('user_id', orgData.user_id)
       .maybeSingle();
+
+    const orgName        = (orgData.organization_name || '').trim();
+    const orgNameCompact = orgName.replace(/\s+/g, '');
+    const jsonbLeadership = orgData.leadership || [];
+
+    // ── Strategy 1: company name match ──
+    const nameFilters = orgName ? [`company.ilike.%${orgName}%`] : [];
+    if (orgNameCompact && orgNameCompact !== orgName) {
+      nameFilters.push(`company.ilike.%${orgNameCompact}%`);
+    }
+    const { data: companyPersons } = nameFilters.length > 0
+      ? await supabase
+          .from('entities_master')
+          .select('*')
+          .or(nameFilters.join(','))
+          .eq('Payment_status', 'paid')
+          .eq('approval_status', 'approved')
+      : { data: [] };
+
+    // ── Strategy 2: JSONB user_ids (supplemental) ──
+    const fetchedIds  = new Set((companyPersons || []).map((p) => p.user_id));
+    const missingIds  = jsonbLeadership
+      .map((p) => p.user_id)
+      .filter((uid) => uid && !fetchedIds.has(uid));
+
+    let supplementalPersons = [];
+    if (missingIds.length > 0) {
+      const { data: sup } = await supabase
+        .from('entities_master')
+        .select('*')
+        .in('user_id', missingIds)
+        .eq('Payment_status', 'paid')
+        .eq('approval_status', 'approved');
+      supplementalPersons = sup || [];
+    }
+
+    // ── Strategy 3: name search for JSONB entries with no user_id ──
+    const jsonbNoId = jsonbLeadership.filter((p) => !p.user_id && p.name);
+    let nameMatchedPersons = [];
+    if (jsonbNoId.length > 0) {
+      const nameMatchIds = new Set([...fetchedIds, ...supplementalPersons.map((p) => p.user_id)]);
+      for (const person of jsonbNoId) {
+        const cleaned = (person.name || '').replace(/\[.*?\]/g, '').trim();
+        const words   = cleaned.split(/\s+/).filter((w) => w.length > 2);
+        if (!words.length) continue;
+        const surname = words[words.length - 1];
+        const { data: found } = await supabase
+          .from('entities_master')
+          .select('*')
+          .ilike('name', `%${surname}%`)
+          .eq('Payment_status', 'paid')
+          .eq('approval_status', 'approved')
+          .limit(1);
+        if (found?.length > 0 && !nameMatchIds.has(found[0].user_id)) {
+          nameMatchedPersons.push(found[0]);
+          nameMatchIds.add(found[0].user_id);
+        }
+      }
+    }
+
+    const allPersons = [
+      ...(companyPersons || []),
+      ...supplementalPersons,
+      ...nameMatchedPersons,
+    ];
+
+    // Deduplicate by user_id
+    const seen = new Set();
+    const uniquePersons = allPersons.filter((p) => {
+      if (seen.has(p.user_id)) return false;
+      seen.add(p.user_id);
+      return true;
+    });
+
+    if (uniquePersons.length > 0) {
+      const allIds = uniquePersons.map((p) => p.user_id);
+      const { data: personDetails } = await supabase
+        .from('user_details')
+        .select('user_id, cropped_photo_url, photo_url')
+        .in('user_id', allIds);
+
+      const photoMap = {};
+      (personDetails || []).forEach((d) => {
+        photoMap[d.user_id] = {
+          cropped:  d.cropped_photo_url || null,
+          original: d.photo_url         || null,
+        };
+      });
+
+      setLivePersons(
+        uniquePersons.map((p) => ({
+          ...p,
+          company:           p.company || orgName,
+          cropped_photo_url: photoMap[p.user_id]?.cropped || photoMap[p.user_id]?.original || null,
+        }))
+      );
+    }
 
     setProfile({ ...orgData, details: detailsData || {} });
     setLogoFullUrl(detailsData?.profile_picture_url || null);
@@ -237,6 +354,14 @@ const OrganizationProfile = () => {
       arr[idx] = { ...arr[idx], [field]: val };
       return { ...prev, [key]: arr };
     });
+
+  const addLexiconPeople = (people) => {
+    const existingIds = new Set(
+      (form.leadership || []).filter((p) => p.user_id).map((p) => p.user_id)
+    );
+    const newPeople = people.filter((p) => !existingIds.has(p.user_id));
+    setForm((prev) => ({ ...prev, leadership: [...(prev.leadership || []), ...newPeople] }));
+  };
 
   const handleEditStart = () => {
     if (!profile) return;
@@ -434,13 +559,8 @@ const OrganizationProfile = () => {
 
   const statsForDisplay = stats.filter((s) => s.value !== null);
 
-  const leadership = (profile.leadership || []).map((person) => ({
-    ...person,
-    image:     person.image     || person.image_url || null,
-    verified:  person.verified  !== undefined ? person.verified : true,
-    score:     person.score     || person.authority_score || null,
-    expertise: person.expertise || person.subtitle || person.title || '',
-  }));
+  // Live persons from entities_master (same 4-strategy fetch as main website)
+  const leadership = livePersons;
 
   const trustedOrganizations = (profile.trusted_by || [])
     .map((item) => (typeof item === 'string' ? item : item.name || ''))
@@ -975,47 +1095,119 @@ const OrganizationProfile = () => {
               <>
                 <div className="op-section-edit-title-row">
                   <h2 className="op-section-title" style={{ marginBottom: 0 }}>Leadership &amp; Key People</h2>
-                  <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+                  <div className="lp-header-actions">
+                    <button className="op-edit-add-btn ep-add-btn--primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#1E3A8A', color: '#fff', border: 'none' }} onClick={() => setPickerOpen(true)}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                      Pick from Lexicon
+                    </button>
+                    <button className="op-edit-add-btn" onClick={() => sfAddObj('leadership', { name: '', role: '', expertise: '', image: '', score: '', source: 'manual' })}>
+                      + Add Manually
+                    </button>
+                  </div>
                 </div>
+
+                {/* Lexicon picks */}
+                {(form.leadership || []).some((p) => p.source === 'lexicon') && (
+                  <>
+                    <p className="lp-group-label">From Lexicon</p>
+                    <div className="lp-lexicon-grid">
+                      {(form.leadership || []).map((person, realIdx) => {
+                        if (person.source !== 'lexicon') return null;
+                        const initials = (person.name || '').split(' ').filter(Boolean).map((w) => w[0]).join('').toUpperCase().slice(0, 2) || 'NA';
+                        return (
+                          <div key={person.user_id || realIdx} className="lp-mini-card">
+                            <div className="lp-mini-avatar">
+                              {person.image
+                                ? <img src={person.image} alt={person.name} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+                                : null}
+                              <span style={{ display: person.image ? 'none' : 'flex' }}>{initials}</span>
+                            </div>
+                            <div className="lp-mini-info">
+                              <span className="lp-mini-name">{person.name || '—'}</span>
+                              {person.role && <span className="lp-mini-role">{person.role}</span>}
+                            </div>
+                            <span className="lp-mini-badge">Lexicon</span>
+                            <button className="lp-mini-remove" onClick={() => sfRemove('leadership', realIdx)}>×</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {/* Manual entries */}
+                {(form.leadership || []).some((p) => p.source !== 'lexicon') && (
+                  <p className="lp-group-label" style={{ marginTop: (form.leadership || []).some((p) => p.source === 'lexicon') ? 16 : 0 }}>
+                    Manual Entries
+                  </p>
+                )}
                 <div className="op-edit-cards">
-                  {(form.leadership || []).map((person, i) => (
-                    <div key={i} className="op-edit-card">
-                      <button className="op-edit-card-remove" onClick={() => sfRemove('leadership', i)}>&times;</button>
-                      <div className="op-inline-grid">
-                        <div className="op-inline-field">
-                          <label className="op-inline-label">Name</label>
-                          <input className="op-inline-input" value={person.name || ''} onChange={(e) => sfUpdateObj('leadership', i, 'name', e.target.value)} placeholder="e.g. Jane Smith" />
-                        </div>
-                        <div className="op-inline-field">
-                          <label className="op-inline-label">Role / Title</label>
-                          <input className="op-inline-input" value={person.role || ''} onChange={(e) => sfUpdateObj('leadership', i, 'role', e.target.value)} placeholder="e.g. Co-Founder & CEO" />
-                        </div>
-                        <div className="op-inline-field op-inline-grid--full">
-                          <label className="op-inline-label">Expertise / Bio</label>
-                          <input className="op-inline-input" value={person.expertise || ''} onChange={(e) => sfUpdateObj('leadership', i, 'expertise', e.target.value)} placeholder="e.g. 20 years in enterprise SaaS" />
-                        </div>
-                        <div className="op-inline-field">
-                          <label className="op-inline-label">Photo URL</label>
-                          <input className="op-inline-input" type="url" value={person.image || ''} onChange={(e) => sfUpdateObj('leadership', i, 'image', e.target.value)} placeholder="https://..." />
-                        </div>
-                        <div className="op-inline-field">
-                          <label className="op-inline-label">Authority Score</label>
-                          <input className="op-inline-input" type="number" value={person.score || ''} onChange={(e) => sfUpdateObj('leadership', i, 'score', e.target.value)} placeholder="e.g. 78" />
+                  {(form.leadership || []).map((person, realIdx) => {
+                    if (person.source === 'lexicon') return null;
+                    return (
+                      <div key={realIdx} className="op-edit-card">
+                        <button className="op-edit-card-remove" onClick={() => sfRemove('leadership', realIdx)}>&times;</button>
+                        <div className="op-inline-grid">
+                          <div className="op-inline-field">
+                            <label className="op-inline-label">Name</label>
+                            <input className="op-inline-input" value={person.name || ''} onChange={(e) => sfUpdateObj('leadership', realIdx, 'name', e.target.value)} placeholder="e.g. Jane Smith" />
+                          </div>
+                          <div className="op-inline-field">
+                            <label className="op-inline-label">Role / Title</label>
+                            <input className="op-inline-input" value={person.role || ''} onChange={(e) => sfUpdateObj('leadership', realIdx, 'role', e.target.value)} placeholder="e.g. Co-Founder & CEO" />
+                          </div>
+                          <div className="op-inline-field op-inline-grid--full">
+                            <label className="op-inline-label">Expertise / Bio</label>
+                            <input className="op-inline-input" value={person.expertise || ''} onChange={(e) => sfUpdateObj('leadership', realIdx, 'expertise', e.target.value)} placeholder="e.g. 20 years in enterprise SaaS" />
+                          </div>
+                          <div className="op-inline-field">
+                            <label className="op-inline-label">Photo URL</label>
+                            <input className="op-inline-input" type="url" value={person.image || ''} onChange={(e) => sfUpdateObj('leadership', realIdx, 'image', e.target.value)} placeholder="https://..." />
+                          </div>
+                          <div className="op-inline-field">
+                            <label className="op-inline-label">Authority Score</label>
+                            <input className="op-inline-input" type="number" value={person.score || ''} onChange={(e) => sfUpdateObj('leadership', realIdx, 'score', e.target.value)} placeholder="e.g. 78" />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-                <button className="op-edit-add-btn" onClick={() => sfAddObj('leadership', { name: '', role: '', expertise: '', image: '', score: '', verified: true })}>
-                  + Add Person
-                </button>
+
+                {(form.leadership || []).length === 0 && (
+                  <p style={{ fontSize: 13, color: '#94a3b8', margin: '12px 0 4px' }}>
+                    No leadership members yet. Pick from the Lexicon or add manually.
+                  </p>
+                )}
+
+                {/* Picker modal */}
+                {pickerOpen && (
+                  <LeadershipPickerModal
+                    currentIds={(form.leadership || []).filter((p) => p.user_id).map((p) => p.user_id)}
+                    onAdd={addLexiconPeople}
+                    onClose={() => setPickerOpen(false)}
+                  />
+                )}
               </>
             ) : (
               <>
                 <h2 className="op-section-title">Leadership &amp; Key People</h2>
                 <p className="op-section-subtitle">Verified individuals connected to this organization</p>
                 <div className="op-leadership-grid">
-                  {org.leadership.map((person, i) => <ProfileCard key={i} person={person} />)}
+                  {org.leadership.map((person, i) => (
+                    <LeadershipCard
+                      key={person.user_id || i}
+                      user_id={person.user_id}
+                      entitySlug={person.entity_slug}
+                      name={person.name}
+                      role={person.role}
+                      sector={person.sector}
+                      authorityScore={person.authority_score}
+                      image={person.cropped_photo_url || person.image_url || null}
+                    />
+                  ))}
                 </div>
                 <div className="op-team-cta">
                   <button className="op-team-cta__btn">Explore All Team Members <ChevronRight size={15} /></button>

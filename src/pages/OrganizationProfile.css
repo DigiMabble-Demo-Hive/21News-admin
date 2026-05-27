@@ -644,115 +644,153 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
+  align-items: stretch;
 }
 
-.op-profile-card {
+.op-lcard {
   background: #ffffff;
-  border: 1px solid #e8edf5;
-  border-radius: 14px;
-  padding: 24px 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 0 24px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
   text-align: center;
-  transition: all 0.22s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-}
-
-.op-profile-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 28px rgba(30, 58, 138, 0.1);
-  border-color: #bfdbfe;
-}
-
-.op-profile-card__avatar-wrap {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
+  gap: 6px;
   overflow: hidden;
-  border: 3px solid #dbeafe;
-  flex-shrink: 0;
-  margin-bottom: 4px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.22s ease, transform 0.22s ease;
 }
 
-.op-profile-card__avatar {
+.op-lcard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(30, 58, 138, 0.10);
+}
+
+.op-lcard__img-wrap {
+  position: relative;
+  width: calc(100% + 48px);
+  margin: 0 -24px 16px -24px;
+  height: 220px;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: linear-gradient(135deg, #DBEAFE, #E0E7FF);
+}
+
+.op-lcard__img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
 
-.op-profile-card__avatar-fallback {
+.op-lcard__img-fallback {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #1E3A8A, #3b82f6);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: linear-gradient(135deg, #DBEAFE, #E0E7FF);
+  color: #1E3A5F;
+}
+
+.op-lcard__img-fallback span {
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.op-lcard__verified {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  background: #2C2F86;
   color: #ffffff;
-  font-size: 20px;
+  border-radius: 999px;
+  font-size: 10px;
   font-weight: 700;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(44, 47, 134, 0.35);
 }
 
-.op-profile-card .op-badge--verified {
-  font-size: 9px;
-  padding: 3px 8px;
-}
-
-.op-profile-card__name {
-  font-size: 14.5px;
+.op-lcard__name {
+  font-size: 17px;
   font-weight: 700;
-  color: #1E3A8A;
+  color: #0f172a;
   margin: 0;
   line-height: 1.3;
 }
 
-.op-profile-card__role {
+.op-lcard__role {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #2563eb;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.op-lcard__sector {
   font-size: 12.5px;
-  font-weight: 600;
-  color: #374151;
-  margin: 0;
-}
-
-.op-profile-card__expertise {
-  font-size: 11.5px;
   color: #64748b;
-  margin: 0;
-  line-height: 1.45;
+  margin: 4px 0 6px;
+  line-height: 1.5;
 }
 
-.op-profile-card__score {
-  display: inline-flex;
+.op-lcard__score {
+  display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #f59e0b;
-  background: #fffbeb;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid #fde68a;
+  gap: 5px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 4px 0 2px;
 }
 
-.op-profile-card__btn {
-  margin-top: 4px;
-  background: transparent;
-  border: 1.5px solid #93c5fd;
-  color: #1E3A8A;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 7px 16px;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: all 0.18s ease;
+.op-lcard__star {
+  color: #f59e0b;
+}
+
+.op-lcard__footer {
+  margin-top: 14px;
   width: 100%;
 }
 
-.op-profile-card__btn:hover {
-  background: #1E3A8A;
-  border-color: #1E3A8A;
+.op-lcard__btn {
+  display: block;
+  width: 100%;
+  padding: 10px 0;
+  border: 1.5px solid #2563eb;
+  border-radius: 50px;
+  color: #2563eb;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.op-lcard__btn:hover {
+  background: #2563eb;
   color: #ffffff;
+}
+
+.op-lcard__btn--disabled {
+  border-color: #cbd5e1;
+  color: #94a3b8;
+  cursor: default;
+}
+
+.op-lcard__btn--disabled:hover {
+  background: transparent;
+  color: #94a3b8;
 }
 
 /* ---- Team CTA ---- */

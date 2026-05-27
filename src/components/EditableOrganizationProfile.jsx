@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { updateAdminProfile } from '../lib/adminProfileApi';
+import LeadershipPickerModal from './LeadershipPickerModal';
 import './EditableProfile.css';
+import './LeadershipPickerModal.css';
 
 const EditableOrganizationProfile = ({ profile, onSave, onCancel }) => {
   // Flatten org + details into one form object for simplicity
@@ -42,8 +44,9 @@ const EditableOrganizationProfile = ({ profile, onSave, onCancel }) => {
     leadership:    Array.isArray(profile.leadership)    ? profile.leadership    : [],
   });
 
-  const [saving, setSaving]   = useState(false);
-  const [error,  setError]    = useState('');
+  const [saving, setSaving]         = useState(false);
+  const [error,  setError]          = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
   const isDirty = JSON.stringify(form) !== JSON.stringify({
     organization_name:      profile.organization_name      || '',
     tagline:                profile.tagline                || '',
@@ -97,6 +100,14 @@ const EditableOrganizationProfile = ({ profile, onSave, onCancel }) => {
 
   const removeArrayItem = (key, index) =>
     setForm((prev) => ({ ...prev, [key]: (prev[key] || []).filter((_, i) => i !== index) }));
+
+  const addLexiconPeople = (people) => {
+    const existingIds = new Set(
+      (form.leadership || []).filter((p) => p.user_id).map((p) => p.user_id)
+    );
+    const newPeople = people.filter((p) => !existingIds.has(p.user_id));
+    setForm((prev) => ({ ...prev, leadership: [...(prev.leadership || []), ...newPeople] }));
+  };
 
   /* String-list helpers (differentiators, trusted_by) */
   const addStringItem = (key, inputRef) => {
@@ -184,8 +195,8 @@ const EditableOrganizationProfile = ({ profile, onSave, onCancel }) => {
   };
 
   /* ── Refs for string-list inputs ── */
-  const diffInputRef    = { current: null };
-  const trustedInputRef = { current: null };
+  const diffInputRef    = useRef(null);
+  const trustedInputRef = useRef(null);
 
   return (
     <div className="editable-profile">
@@ -421,36 +432,103 @@ const EditableOrganizationProfile = ({ profile, onSave, onCancel }) => {
       <div className="ep-section">
         <div className="ep-section-header">
           <h4 className="ep-section-title">Leadership &amp; Key People</h4>
-          <button className="ep-add-btn" onClick={() => addArrayItem('leadership', { name: '', role: '', expertise: '', image: '', score: '', verified: true })}>+ Add Person</button>
+          <div className="lp-header-actions">
+            <button className="ep-add-btn ep-add-btn--primary" onClick={() => setPickerOpen(true)}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              Pick from Lexicon
+            </button>
+            <button
+              className="ep-add-btn"
+              onClick={() => addArrayItem('leadership', { name: '', role: '', expertise: '', image: '', score: '', source: 'manual' })}
+            >
+              + Add Manually
+            </button>
+          </div>
         </div>
-        {(form.leadership || []).map((person, i) => (
-          <div key={i} className="ep-card">
-            <button className="ep-card-remove" onClick={() => removeArrayItem('leadership', i)}>&times;</button>
-            <div className="ep-grid">
-              <div className="ep-field">
-                <label>Name</label>
-                <input value={person.name || ''} onChange={(e) => updateNestedArray('leadership', i, 'name', e.target.value)} placeholder="e.g. Jane Smith" />
-              </div>
-              <div className="ep-field">
-                <label>Role / Title</label>
-                <input value={person.role || ''} onChange={(e) => updateNestedArray('leadership', i, 'role', e.target.value)} placeholder="e.g. Co-Founder & CEO" />
-              </div>
-              <div className="ep-field ep-field--full">
-                <label>Expertise / Bio</label>
-                <input value={person.expertise || ''} onChange={(e) => updateNestedArray('leadership', i, 'expertise', e.target.value)} placeholder="e.g. 20 years in enterprise SaaS" />
-              </div>
-              <div className="ep-field">
-                <label>Photo URL</label>
-                <input type="url" value={person.image || ''} onChange={(e) => updateNestedArray('leadership', i, 'image', e.target.value)} placeholder="https://..." />
-              </div>
-              <div className="ep-field">
-                <label>Authority Score</label>
-                <input type="number" value={person.score || ''} onChange={(e) => updateNestedArray('leadership', i, 'score', e.target.value)} placeholder="e.g. 78" />
+
+        {/* ── Lexicon picks ── */}
+        {(form.leadership || []).some((p) => p.source === 'lexicon') && (
+          <>
+            <p className="lp-group-label">From Lexicon</p>
+            <div className="lp-lexicon-grid">
+              {(form.leadership || []).map((person, realIdx) => {
+                if (person.source !== 'lexicon') return null;
+                const initials = (person.name || '').split(' ').filter(Boolean).map((w) => w[0]).join('').toUpperCase().slice(0, 2) || 'NA';
+                return (
+                  <div key={person.user_id || realIdx} className="lp-mini-card">
+                    <div className="lp-mini-avatar">
+                      {person.image
+                        ? <img src={person.image} alt={person.name} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+                        : null}
+                      <span style={{ display: person.image ? 'none' : 'flex' }}>{initials}</span>
+                    </div>
+                    <div className="lp-mini-info">
+                      <span className="lp-mini-name">{person.name || '—'}</span>
+                      {person.role && <span className="lp-mini-role">{person.role}</span>}
+                    </div>
+                    <span className="lp-mini-badge">Lexicon</span>
+                    <button className="lp-mini-remove" onClick={() => removeArrayItem('leadership', realIdx)}>×</button>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* ── Manual entries ── */}
+        {(form.leadership || []).some((p) => p.source !== 'lexicon') && (
+          <p className="lp-group-label" style={{ marginTop: (form.leadership || []).some((p) => p.source === 'lexicon') ? 16 : 0 }}>
+            Manual Entries
+          </p>
+        )}
+        {(form.leadership || []).map((person, realIdx) => {
+          if (person.source === 'lexicon') return null;
+          return (
+            <div key={realIdx} className="ep-card">
+              <button className="ep-card-remove" onClick={() => removeArrayItem('leadership', realIdx)}>&times;</button>
+              <div className="ep-grid">
+                <div className="ep-field">
+                  <label>Name</label>
+                  <input value={person.name || ''} onChange={(e) => updateNestedArray('leadership', realIdx, 'name', e.target.value)} placeholder="e.g. Jane Smith" />
+                </div>
+                <div className="ep-field">
+                  <label>Role / Title</label>
+                  <input value={person.role || ''} onChange={(e) => updateNestedArray('leadership', realIdx, 'role', e.target.value)} placeholder="e.g. Co-Founder & CEO" />
+                </div>
+                <div className="ep-field ep-field--full">
+                  <label>Expertise / Bio</label>
+                  <input value={person.expertise || ''} onChange={(e) => updateNestedArray('leadership', realIdx, 'expertise', e.target.value)} placeholder="e.g. 20 years in enterprise SaaS" />
+                </div>
+                <div className="ep-field">
+                  <label>Photo URL</label>
+                  <input type="url" value={person.image || ''} onChange={(e) => updateNestedArray('leadership', realIdx, 'image', e.target.value)} placeholder="https://..." />
+                </div>
+                <div className="ep-field">
+                  <label>Authority Score</label>
+                  <input type="number" value={person.score || ''} onChange={(e) => updateNestedArray('leadership', realIdx, 'score', e.target.value)} placeholder="e.g. 78" />
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
+
+        {(form.leadership || []).length === 0 && (
+          <p style={{ fontSize: 13, color: '#94a3b8', margin: '12px 0 0' }}>
+            No leadership members yet. Pick from the Lexicon or add manually.
+          </p>
+        )}
       </div>
+
+      {/* ── Lexicon Picker Modal ── */}
+      {pickerOpen && (
+        <LeadershipPickerModal
+          currentIds={(form.leadership || []).filter((p) => p.user_id).map((p) => p.user_id)}
+          onAdd={addLexiconPeople}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
 
     </div>
   );
