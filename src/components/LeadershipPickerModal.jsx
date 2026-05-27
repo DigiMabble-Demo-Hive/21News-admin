@@ -21,13 +21,13 @@ const LeadershipPickerModal = ({ currentIds = [], onAdd, onClose }) => {
     try {
       let req = supabase
         .from('entities_master')
-        .select('user_id, name, role, sector, authority_score, entity_type')
+        .select('user_id, name, role, sector, company, authority_score, entity_type')
         .eq('approval_status', 'approved')
         .order('authority_score', { ascending: false })
         .limit(30);
 
       if (trimmed) {
-        req = req.ilike('name', `%${trimmed}%`);
+        req = req.or(`name.ilike.%${trimmed}%,company.ilike.%${trimmed}%`);
       }
 
       const { data, error: queryError } = await req;
@@ -126,7 +126,7 @@ const LeadershipPickerModal = ({ currentIds = [], onAdd, onClose }) => {
             className="lpm-search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name..."
+            placeholder="Search by name or company..."
             autoFocus
           />
           {query && (
@@ -200,8 +200,16 @@ const LeadershipPickerModal = ({ currentIds = [], onAdd, onClose }) => {
 
                 <div className="lpm-info">
                   <span className="lpm-name">{person.name}</span>
-                  {person.role   && <span className="lpm-role">{person.role}</span>}
-                  {person.sector && <span className="lpm-sector">{person.sector}</span>}
+                  {person.role    && <span className="lpm-role">{person.role}</span>}
+                  {person.company && (
+                    <span className="lpm-company">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-4 0v2" /><line x1="12" y1="12" x2="12" y2="16" /><line x1="10" y1="14" x2="14" y2="14" />
+                      </svg>
+                      {person.company}
+                    </span>
+                  )}
+                  {person.sector  && <span className="lpm-sector">{person.sector}</span>}
                 </div>
 
                 {person.authority_score > 0 && (
