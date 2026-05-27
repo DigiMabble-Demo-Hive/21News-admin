@@ -8,47 +8,66 @@ const getInitials = (name) =>
 const LeadershipPickerModal = ({ currentIds = [], onAdd, onClose }) => {
   const [query, setQuery]       = useState('');
   const [results, setResults]   = useState([]);
-  const [loading, setLoading]   = useState(false);
-  const [selected, setSelected] = useState({}); // { user_id: personObject }
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState('');
+  const [selected, setSelected] = useState({});
+  const [hasSearched, setHasSearched] = useState(false);
 
   const search = useCallback(async (q) => {
     setLoading(true);
+    setError('');
     const trimmed = q.trim();
 
-    let req = supabase
-      .from('entities_master')
-      .select('user_id, name, role, sector, authority_score, entity_slug, entity_type')
-      .eq('Payment_status', 'paid')
-      .eq('approval_status', 'approved')
-      .limit(24);
+    try {
+      let req = supabase
+        .from('entities_master')
+        .select('user_id, name, role, sector, authority_score, entity_type')
+        .eq('approval_status', 'approved')
+        .order('authority_score', { ascending: false })
+        .limit(30);
 
-    if (trimmed) {
-      req = req.ilike('name', `%${trimmed}%`);
-    }
+      if (trimmed) {
+        req = req.ilike('name', `%${trimmed}%`);
+      }
 
-    const { data } = await req;
-    const people = (data || []).filter(
-      (p) => p.entity_type !== 'organization' && p.entity_type !== 'organisation'
-    );
+      const { data, error: queryError } = await req;
 
-    if (people.length > 0) {
-      const ids = people.map((p) => p.user_id);
-      const { data: photoData } = await supabase
-        .from('user_details')
-        .select('user_id, cropped_photo_url, photo_url')
-        .in('user_id', ids);
+      if (queryError) {
+        console.error('LeadershipPicker query error:', queryError);
+        setError('Could not load people. Please try again.');
+        setResults([]);
+        setHasSearched(true);
+        return;
+      }
 
-      const photoMap = {};
-      (photoData || []).forEach((d) => {
-        photoMap[d.user_id] = d.cropped_photo_url || d.photo_url || null;
-      });
+      const people = (data || []).filter(
+        (p) => p.entity_type !== 'organization' && p.entity_type !== 'organisation'
+      );
 
-      setResults(people.map((p) => ({ ...p, image: photoMap[p.user_id] || null })));
-    } else {
+      if (people.length > 0) {
+        const ids = people.map((p) => p.user_id);
+        const { data: photoData } = await supabase
+          .from('user_details')
+          .select('user_id, cropped_photo_url, photo_url')
+          .in('user_id', ids);
+
+        const photoMap = {};
+        (photoData || []).forEach((d) => {
+          photoMap[d.user_id] = d.cropped_photo_url || d.photo_url || null;
+        });
+
+        setResults(people.map((p) => ({ ...p, image: photoMap[p.user_id] || null })));
+      } else {
+        setResults([]);
+      }
+    } catch (err) {
+      console.error('LeadershipPicker unexpected error:', err);
+      setError('Something went wrong. Please try again.');
       setResults([]);
+    } finally {
+      setLoading(false);
+      setHasSearched(true);
     }
-
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -76,7 +95,7 @@ const LeadershipPickerModal = ({ currentIds = [], onAdd, onClose }) => {
       sector:          p.sector      || '',
       authority_score: p.authority_score || 0,
       image:           p.image       || '',
-      entity_slug:     p.entity_slug || '',
+      entity_slug:     '',
     }));
     onAdd(people);
     onClose();
@@ -93,7 +112,7 @@ const LeadershipPickerModal = ({ currentIds = [], onAdd, onClose }) => {
         <div className="lpm-header">
           <div>
             <h3 className="lpm-title">Pick from Lexicon</h3>
-            <p className="lpm-subtitle">Search verified entity profiles and add them to Leadership</p>
+            <p className="lpm-subtitle">Search verified profiles to add to Leadership</p>
           </div>
           <button className="lpm-close" onClick={onClose}>×</button>
         </div>
@@ -117,15 +136,38 @@ const LeadershipPickerModal = ({ currentIds = [], onAdd, onClose }) => {
 
         {/* Results */}
         <div className="lpm-results">
-          {loading && <div className="lpm-status">Searching...</div>}
-
-          {!loading && results.length === 0 && (
+          {loading && (
             <div className="lpm-status">
-              {query ? `No results for "${query}"` : 'Start typing to search people'}
+              <div className="lpm-loader" />
+              Searching…
             </div>
           )}
 
-          {!loading && results.map((person) => {
+          {!loading && error && (
+            <div className="lpm-status lpm-status--error">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              {error}
+            </div>
+          )}
+
+          {!loading && !error && results.length === 0 && hasSearched && (
+            <div className="lpm-status">
+              {query ? (
+                <>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5">
+                    <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  No results for <strong>&ldquo;{query}&rdquo;</strong>
+                </>
+              ) : (
+                'No approved profiles found.'
+              )}
+            </div>
+          )}
+
+          {!loading && !error && results.map((person) => {
             const already   = isAlreadyAdded(person.user_id);
             const isSel     = !!selected[person.user_id];
             const initials  = getInitials(person.name);
@@ -137,8 +179,18 @@ const LeadershipPickerModal = ({ currentIds = [], onAdd, onClose }) => {
                   'lpm-row',
                   isSel   ? 'lpm-row--selected' : '',
                   already ? 'lpm-row--added'    : '',
-                ].join(' ')}
+                ].filter(Boolean).join(' ')}
+                onClick={() => !already && toggle(person)}
               >
+                {/* Selection checkbox */}
+                <div className={`lpm-checkbox ${isSel ? 'lpm-checkbox--checked' : ''} ${already ? 'lpm-checkbox--done' : ''}`}>
+                  {(isSel || already) && (
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="2 6 5 9 10 3" />
+                    </svg>
+                  )}
+                </div>
+
                 <div className="lpm-avatar">
                   {person.image
                     ? <img src={person.image} alt={person.name} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
@@ -161,17 +213,7 @@ const LeadershipPickerModal = ({ currentIds = [], onAdd, onClose }) => {
                   </span>
                 )}
 
-                <button
-                  className={[
-                    'lpm-pick-btn',
-                    already ? 'lpm-pick-btn--done'     : '',
-                    isSel   ? 'lpm-pick-btn--selected' : '',
-                  ].join(' ')}
-                  onClick={() => !already && toggle(person)}
-                  disabled={already}
-                >
-                  {already ? 'Added' : isSel ? '✓ Selected' : '+ Add'}
-                </button>
+                {already && <span className="lpm-already-tag">Added</span>}
               </div>
             );
           })}
@@ -189,7 +231,7 @@ const LeadershipPickerModal = ({ currentIds = [], onAdd, onClose }) => {
               onClick={handleAdd}
               disabled={selectedCount === 0}
             >
-              Add {selectedCount > 0 ? `(${selectedCount})` : ''} to Leadership
+              {selectedCount > 0 ? `Add ${selectedCount} to Leadership` : 'Add to Leadership'}
             </button>
           </div>
         </div>

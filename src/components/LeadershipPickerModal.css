@@ -133,31 +133,64 @@
   flex-direction: column;
   gap: 6px;
   margin-top: 12px;
+  min-height: 120px;
 }
 
 .lpm-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   text-align: center;
-  padding: 32px 0;
+  padding: 40px 0;
   font-size: 14px;
   color: #94a3b8;
+}
+
+.lpm-status strong {
+  color: #64748b;
+}
+
+.lpm-status--error {
+  color: #dc2626;
+  flex-direction: row;
+  padding: 20px 0;
+}
+
+/* Spinner */
+.lpm-loader {
+  width: 20px;
+  height: 20px;
+  border: 2.5px solid #e2e8f0;
+  border-top-color: #1E3A8A;
+  border-radius: 50%;
+  animation: lpm-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes lpm-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* ---- Person row ---- */
 .lpm-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 10px 12px;
   border-radius: 10px;
   border: 1.5px solid #e2e8f0;
   background: #fff;
-  transition: border-color 0.15s, background 0.15s;
-  cursor: default;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+  user-select: none;
 }
 
 .lpm-row:hover:not(.lpm-row--added) {
   border-color: #bfdbfe;
   background: #f8faff;
+  box-shadow: 0 2px 8px rgba(30, 58, 138, 0.06);
 }
 
 .lpm-row--selected {
@@ -166,7 +199,47 @@
 }
 
 .lpm-row--added {
-  opacity: 0.5;
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Checkbox */
+.lpm-checkbox {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #cbd5e1;
+  border-radius: 5px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  background: #fff;
+}
+
+.lpm-checkbox--checked {
+  background: #1E3A8A;
+  border-color: #1E3A8A;
+  color: #fff;
+}
+
+.lpm-checkbox--done {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #16a34a;
+}
+
+/* Already-added tag */
+.lpm-already-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #16a34a;
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  border-radius: 999px;
+  padding: 2px 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* Avatar */
@@ -238,37 +311,6 @@
   flex-shrink: 0;
 }
 
-/* Pick button */
-.lpm-pick-btn {
-  flex-shrink: 0;
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1.5px solid #1E3A8A;
-  background: transparent;
-  color: #1E3A8A;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-
-.lpm-pick-btn:hover:not(:disabled) {
-  background: #1E3A8A;
-  color: #fff;
-}
-
-.lpm-pick-btn--selected {
-  background: #1E3A8A;
-  color: #fff;
-  border-color: #1E3A8A;
-}
-
-.lpm-pick-btn--done {
-  border-color: #e2e8f0;
-  color: #94a3b8;
-  cursor: not-allowed;
-}
 
 /* ---- Footer ---- */
 .lpm-footer {
