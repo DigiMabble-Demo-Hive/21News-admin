@@ -1,11 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Navigate, Outlet, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 import './AdminLayout.css';
 
 const AdminLayout = () => {
   const { user, loading, logout } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  const fetchPendingCount = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { count, error } = await supabase
+        .from('contact_submissions')
+        .select('*', { count: 'exact', head: true })
+        .eq('company', 'profile_change_request')
+        .eq('status', 'pending');
+
+      if (!error) {
+        setPendingCount(count || 0);
+      }
+    } catch (e) {
+      console.error('Failed to fetch pending requests count', e);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 15000);
+    return () => clearInterval(interval);
+  }, [fetchPendingCount]);
 
   if (loading) {
     return (
@@ -81,6 +106,26 @@ const AdminLayout = () => {
               <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
             </svg>
             Approval
+          </NavLink>
+          <NavLink
+            to="/change-requests"
+            className={({ isActive }) => `admin-nav-item ${isActive ? 'active' : ''}`}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+            Change Requests
+            {pendingCount > 0 && (
+              <span style={{
+                marginLeft: 'auto',
+                backgroundColor: '#ef4444',
+                color: '#ffffff',
+                fontSize: '11px',
+                fontWeight: '700',
+                padding: '2px 8px',
+                borderRadius: '10px'
+              }}>{pendingCount}</span>
+            )}
           </NavLink>
           <NavLink
             to="/featured"

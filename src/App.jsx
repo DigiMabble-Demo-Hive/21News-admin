@@ -8,6 +8,8 @@ import Approval from './pages/Approval';
 import FeaturedContent from './pages/FeaturedContent';
 import ContactSubmissions from './pages/ContactSubmissions';
 import OrganizationProfile from './pages/OrganizationProfile';
+import ChangeRequests from './pages/ChangeRequests';
+
 function App() {
   return (
     <AuthProvider>
@@ -17,6 +19,7 @@ function App() {
           <Route element={<AdminLayout />}>
             <Route path="/lexicon" element={<Lexicon />} />
             <Route path="/approval" element={<Approval />} />
+            <Route path="/change-requests" element={<ChangeRequests />} />
             <Route path="/featured" element={<FeaturedContent />} />
             <Route path="/contact" element={<ContactSubmissions />} />
             <Route path="/entity/:id" element={<EntityProfile />} />

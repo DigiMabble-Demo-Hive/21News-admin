@@ -29,9 +29,10 @@ const formatDate = (dateStr) => {
 const EntityCard = ({
   user_id, entitySlug, image, name, badge, role, location,
   authorityScore, company, onShare, entityType, sector, updatedAt, isPremium,
+  ctaText, ctaLink, onCtaClick, isBuilding, children
 }) => {
   const [imageError, setImageError] = useState(false);
-  const isProfileBuilding = Number(authorityScore || 0) === 0 && !company;
+  const isProfileBuilding = isBuilding !== undefined ? isBuilding : (Number(authorityScore || 0) === 0 && !company);
   const scoreLabel  = getScoreLabel(authorityScore);
   const typeLabel   = getEntityTypeLabel(entityType);
   const tags        = sector ? sector.split(',').map(t => t.trim()).filter(Boolean) : [];
@@ -145,6 +146,9 @@ const EntityCard = ({
           </>
         )}
 
+        {/* Render children for custom body content overlays */}
+        {children}
+
         {/* Divider */}
         <div className="entity-card-divider" />
 
@@ -154,9 +158,17 @@ const EntityCard = ({
             <span className="entity-card-cta entity-card-cta--disabled">
               Profile Pending
             </span>
+          ) : onCtaClick ? (
+            <button onClick={onCtaClick} className="entity-card-cta" style={{ background: 'none', border: 'none', padding: 0, width: '100%', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
+              <span>{ctaText || 'View Profile'}</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </button>
           ) : (
-            <Link to={entityType === 'organization' ? `/organization/${user_id}` : `/entity/${entitySlug || user_id}`} className="entity-card-cta">
-              <span>View Profile</span>
+            <Link to={ctaLink || (entityType === 'organization' ? `/organization/${user_id}` : `/entity/${entitySlug || user_id}`)} className="entity-card-cta">
+              <span>{ctaText || 'View Profile'}</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12" />
                 <polyline points="12 5 19 12 12 19" />

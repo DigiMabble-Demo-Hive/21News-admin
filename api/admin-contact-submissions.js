@@ -32,9 +32,13 @@ export default async function handler(req, res) {
 
     if (action === 'update_status') {
       if (!id || !data?.status) return res.status(400).json({ error: 'Missing id or status' });
+      const updatePayload = { status: data.status };
+      if (data.message !== undefined) {
+        updatePayload.message = data.message;
+      }
       const { data: rows, error } = await db
         .from('contact_submissions')
-        .update({ status: data.status })
+        .update(updatePayload)
         .eq('id', id)
         .select();
       if (error) throw error;

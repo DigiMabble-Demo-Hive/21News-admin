@@ -17,5 +17,5 @@ const call = async (body) => {
 };
 
 export const listContactSubmissions   = ()                  => call({ action: 'list' });
-export const updateSubmissionStatus   = (id, status)        => call({ action: 'update_status', id, data: { status } });
+export const updateSubmissionStatus   = (id, status, message) => call({ action: 'update_status', id, data: { status, message } });
 export const deleteContactSubmission  = (id)                => call({ action: 'delete', id });
