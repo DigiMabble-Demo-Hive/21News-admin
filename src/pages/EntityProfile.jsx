@@ -9,6 +9,27 @@ import ToastContainer, { useToast } from '../components/Toast';
 import { generateJsonLd } from '../utils/jsonLdGenerator';
 import './EntityProfile.css';
 
+// ============ PREMIUM FEATURE CONFIG ============
+const PREMIUM_MOCK_DATA = {
+  featured_content: {
+    title: 'The Future of AI Ethics in Corporate Governance',
+    excerpt: 'Leading AI ethics consulting and framework development for enterprise organizations building responsible AI systems.',
+    image_url: null,
+    article_url: '#',
+    highlight_quote: 'Only AI ethics consultancy led by Stanford PhD researchers with direct policy advisory experience',
+    why_choose: 'We help organizations build AI systems that are not just powerful, but trustworthy and aligned with human values.',
+    key_benefits: [
+      'Industry-leading AI ethics frameworks',
+      'Trusted by Fortune 500 companies',
+      'Proven track record in compliance',
+    ],
+    publisher: 'Harvard Business Review',
+    date: 'March 2026',
+  },
+  twitter_url: 'https://twitter.com',
+  subscribe_url: '#',
+};
+
 const VerifiedBadge = () => (
   <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="profile-verified-icon">
     <circle cx="16" cy="16" r="3.5" fill="#0EA5E9"/>
@@ -114,6 +135,7 @@ const EntityProfile = () => {
   const [saveError, setSaveError] = useState('');
   const observedSectionsRef = useRef(new Set());
   const trustTagInputRef = useRef(null);
+  const [inlineBenefitInput, setInlineBenefitInput] = useState('');
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -270,6 +292,25 @@ const EntityProfile = () => {
   const sfRemoveTag = (idx) =>
     sf('trust_tags', (form.trust_tags || []).filter((_, i) => i !== idx));
 
+  const sfUpdateFeatured = (field, value) =>
+    setForm((prev) => ({
+      ...prev,
+      featured_content: { ...(prev.featured_content || {}), [field]: value },
+    }));
+
+  const sfAddBenefit = () => {
+    if (!inlineBenefitInput.trim()) return;
+    const benefits = form.featured_content?.key_benefits || [];
+    sfUpdateFeatured('key_benefits', [...benefits, inlineBenefitInput.trim()]);
+    setInlineBenefitInput('');
+  };
+
+  const sfRemoveBenefit = (i) => {
+    const benefits = [...(form.featured_content?.key_benefits || [])];
+    benefits.splice(i, 1);
+    sfUpdateFeatured('key_benefits', benefits);
+  };
+
   const handleEditStart = () => {
     if (!profile) return;
     setForm({
@@ -296,6 +337,14 @@ const EntityProfile = () => {
       digital_presence:       profile.digital_presence       || 0,
       professional_credibility: profile.professional_credibility || 0,
       content_activity:       profile.content_activity       || 0,
+      featured_content: profile.featured_content
+        ? {
+            ...profile.featured_content,
+            key_benefits: Array.isArray(profile.featured_content.key_benefits)
+              ? [...profile.featured_content.key_benefits]
+              : [],
+          }
+        : { excerpt: '', article_url: '', image_url: '', highlight_quote: '', why_choose: '', key_benefits: [] },
     });
     setSaveError('');
     setIsEditing(true);
@@ -336,6 +385,7 @@ const EntityProfile = () => {
         digital_presence:       form.digital_presence,
         professional_credibility: form.professional_credibility,
         content_activity:       form.content_activity,
+        featured_content:       form.featured_content,
       };
       await updateAdminProfile({ userId: profile.user_id, updateData });
       setProfile((prev) => ({ ...prev, ...updateData }));
@@ -353,6 +403,9 @@ const EntityProfile = () => {
   const handleImageSave = (result) => {
     if (editingImageTarget === 'profile') {
       setProfile((prev) => ({ ...prev, image_url: result }));
+    } else if (editingImageTarget === 'hq') {
+      const url = typeof result === 'string' ? result : (result.fullUrl || result.croppedUrl || result);
+      setProfile((prev) => ({ ...prev, hq_image_url: url }));
     } else {
       if (result.fullUrl) {
         setLexiconFullUrl(result.fullUrl);
@@ -365,10 +418,14 @@ const EntityProfile = () => {
 
   const handleImageDelete = async () => {
     try {
-      const isProfile = editingImageTarget === 'profile';
-      const urlsToDelete = isProfile
-        ? [profile?.image_url]
-        : [lexiconFullUrl, lexiconCroppedUrl, profile?.image_url];
+      let urlsToDelete = [];
+      if (editingImageTarget === 'profile') {
+        urlsToDelete = [profile?.image_url];
+      } else if (editingImageTarget === 'hq') {
+        urlsToDelete = [profile?.hq_image_url];
+      } else {
+        urlsToDelete = [lexiconFullUrl, lexiconCroppedUrl, profile?.image_url];
+      }
 
       const files = urlsToDelete.filter(Boolean).map(extractStorageFile).filter(Boolean);
       const byBucket = files.reduce((acc, { bucket, filePath }) => {
@@ -381,9 +438,12 @@ const EntityProfile = () => {
         try { await supabase.storage.from(bucket).remove(filePaths); } catch (e) { console.warn(e.message); }
       }
 
-      if (isProfile) {
+      if (editingImageTarget === 'profile') {
         await updateAdminProfile({ userId: profile.user_id, updateData: { image_url: null }, table: 'entities_master' });
         setProfile((prev) => ({ ...prev, image_url: null }));
+      } else if (editingImageTarget === 'hq') {
+        await updateAdminProfile({ userId: profile.user_id, updateData: { hq_image_url: null }, table: 'entities_master' });
+        setProfile((prev) => ({ ...prev, hq_image_url: null }));
       } else {
         await updateAdminProfile({ userId: profile.user_id, updateData: { photo_url: null, cropped_photo_url: null }, table: 'user_details' });
         await updateAdminProfile({ userId: profile.user_id, updateData: { image_url: null }, table: 'entities_master' });
@@ -414,8 +474,13 @@ const EntityProfile = () => {
     ? new Date(profile.updated_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     : '';
 
+  const isPremium = !!profile.is_premium;
+  const featuredContent = profile.featured_content || (isPremium ? PREMIUM_MOCK_DATA.featured_content : null);
+  const twitterUrl = profile.twitter_url || (isPremium ? PREMIUM_MOCK_DATA.twitter_url : null);
+  const subscribeUrl = profile.subscribe_url || (isPremium ? PREMIUM_MOCK_DATA.subscribe_url : null);
+
   return (
-    <div className="profile-page">
+    <div className={`profile-page${isPremium ? ' profile-page--premium' : ''}`}>
 
       {/* ── Sticky Edit Bar (visible while editing) ── */}
       {isEditing && (
@@ -464,22 +529,51 @@ const EntityProfile = () => {
       {/* ── Image Editor Modal ── */}
       {editingImageTarget && (
         <ImageEditor
-          key={`${profile.user_id}-${editingImageTarget}-${(editingImageTarget === 'profile' ? (profile.image_url || profile.hero_image_url || profile.hq_image_url) : (lexiconCroppedUrl || lexiconFullUrl || profile.image_url)) || 'empty'}`}
+          key={`${profile.user_id}-${editingImageTarget}-${(
+            editingImageTarget === 'profile' ? (profile.image_url || profile.hero_image_url || profile.hq_image_url) :
+            editingImageTarget === 'hq'      ? profile.hq_image_url :
+            (lexiconCroppedUrl || lexiconFullUrl || profile.image_url)
+          ) || 'empty'}`}
           isOpen={!!editingImageTarget}
           onClose={() => setEditingImageTarget(null)}
-          currentImageUrl={editingImageTarget === 'profile'
-            ? (profile.image_url || profile.hero_image_url || profile.hq_image_url)
-            : (lexiconCroppedUrl || lexiconFullUrl || profile.image_url)
+          currentImageUrl={
+            editingImageTarget === 'profile' ? (profile.image_url || profile.hero_image_url || profile.hq_image_url) :
+            editingImageTarget === 'hq'      ? profile.hq_image_url :
+            (lexiconCroppedUrl || lexiconFullUrl || profile.image_url)
           }
-          oldFullUrl={editingImageTarget === 'profile' ? null : (lexiconFullUrl || profile.image_url)}
-          oldCroppedUrl={editingImageTarget === 'profile' ? null : lexiconCroppedUrl}
+          oldFullUrl={
+            editingImageTarget === 'profile' || editingImageTarget === 'hq'
+              ? null
+              : (lexiconFullUrl || profile.image_url)
+          }
+          oldCroppedUrl={
+            editingImageTarget === 'profile' || editingImageTarget === 'hq'
+              ? null
+              : lexiconCroppedUrl
+          }
           userId={profile.user_id}
           onSave={handleImageSave}
           onDelete={handleImageDelete}
-          tableName={editingImageTarget === 'profile' ? 'entities_master' : 'user_details'}
-          columnName={editingImageTarget === 'profile' ? 'image_url' : 'photo_url'}
-          title={editingImageTarget === 'profile' ? 'Upload Profile Image' : 'Edit Card Image'}
-          description={editingImageTarget === 'profile' ? 'Upload the main hero image for this entity profile.' : 'Upload your photo. We will save both the full-resolution image and the cropped card version.'}
+          tableName={
+            editingImageTarget === 'profile' || editingImageTarget === 'hq'
+              ? 'entities_master'
+              : 'user_details'
+          }
+          columnName={
+            editingImageTarget === 'profile' ? 'image_url' :
+            editingImageTarget === 'hq'      ? 'hq_image_url' :
+            'photo_url'
+          }
+          title={
+            editingImageTarget === 'profile' ? 'Upload Profile Image' :
+            editingImageTarget === 'hq'      ? 'Upload Company HQ Image' :
+            'Edit Card Image'
+          }
+          description={
+            editingImageTarget === 'profile' ? 'Upload the main hero image for this entity profile.' :
+            editingImageTarget === 'hq'      ? 'Upload a photo of the company headquarters or office. Shown in the Company Headquarters card on standard profiles.' :
+            'Upload your photo. We will save both the full-resolution image and the cropped card version.'
+          }
         />
       )}
 
@@ -673,7 +767,7 @@ const EntityProfile = () => {
                 <h1 style={{ color: '#1E3A5F' }}>{profile.name}</h1>
                 {(profile.badge === 'verified' || profile.badge === 'claimed') && <VerifiedBadge />}
                 {profile.is_premium && (
-                  <div className="profile-premium-badge">
+                  <div className="profile-premium-badge" style={{ background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)', color: '#fff', boxShadow: '0 2px 8px rgba(255,165,0,0.35)' }}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                     </svg>
@@ -761,21 +855,80 @@ const EntityProfile = () => {
                 </div>
               </div>
 
-              <div className="profile-links">
-                {profile.linkedin_url && (
-                  <a href={profile.linkedin_url} target="_blank" rel="noopener noreferrer" className="profile-link-btn"
-                    onClick={() => trackClick('profile_header', { action: 'outbound_link', target: 'linkedin' })}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" /><rect x="2" y="9" width="4" height="12" /><circle cx="4" cy="4" r="2" /></svg>
-                    LinkedIn
-                  </a>
-                )}
-                {profile.website_url && (
-                  <a href={profile.website_url} target="_blank" rel="noopener noreferrer" className="profile-link-btn"
-                    onClick={() => trackClick('profile_header', { action: 'outbound_link', target: 'website' })}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></svg>
-                    Website
-                  </a>
-                )}
+              {/* Connect & Follow */}
+              <div className="cf-panel" data-analytics-section="connect_follow">
+                <div className="cf-header">
+                  <div>
+                    <div className="cf-title">Connect &amp; Follow</div>
+                    <div className="cf-subtitle">Verified links to official websites, social channels, and media platforms.</div>
+                  </div>
+                  <span className="cf-verified-badge">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    Verified Channels
+                  </span>
+                </div>
+                <div className="cf-grid">
+                  {profile.website_url && (
+                    <a href={profile.website_url} target="_blank" rel="noopener noreferrer" className="cf-pill cf-pill--website" onClick={() => trackClick('connect_follow', { action: 'click', target: 'website' })}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                      Website
+                    </a>
+                  )}
+                  {profile.linkedin_url && (
+                    <a href={profile.linkedin_url} target="_blank" rel="noopener noreferrer" className="cf-pill cf-pill--linkedin" onClick={() => trackClick('connect_follow', { action: 'click', target: 'linkedin' })}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+                      LinkedIn
+                    </a>
+                  )}
+                  {profile.facebook_url && (
+                    <a href={profile.facebook_url} target="_blank" rel="noopener noreferrer" className="cf-pill cf-pill--facebook" onClick={() => trackClick('connect_follow', { action: 'click', target: 'facebook' })}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                      Facebook
+                    </a>
+                  )}
+                  {profile.instagram_url && (
+                    <a href={profile.instagram_url} target="_blank" rel="noopener noreferrer" className="cf-pill cf-pill--instagram" onClick={() => trackClick('connect_follow', { action: 'click', target: 'instagram' })}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                      Instagram
+                    </a>
+                  )}
+                  {twitterUrl && (
+                    <a href={twitterUrl} target="_blank" rel="noopener noreferrer" className="cf-pill cf-pill--twitter" onClick={() => trackClick('connect_follow', { action: 'click', target: 'twitter' })}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                      X
+                    </a>
+                  )}
+                  {profile.youtube_url && (
+                    <a href={profile.youtube_url} target="_blank" rel="noopener noreferrer" className="cf-pill cf-pill--youtube" onClick={() => trackClick('connect_follow', { action: 'click', target: 'youtube' })}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/></svg>
+                      YouTube
+                    </a>
+                  )}
+                  {profile.medium_url && (
+                    <a href={profile.medium_url} target="_blank" rel="noopener noreferrer" className="cf-pill cf-pill--medium" onClick={() => trackClick('connect_follow', { action: 'click', target: 'medium' })}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
+                      Medium
+                    </a>
+                  )}
+                  {profile.github_url && (
+                    <a href={profile.github_url} target="_blank" rel="noopener noreferrer" className="cf-pill cf-pill--github" onClick={() => trackClick('connect_follow', { action: 'click', target: 'github' })}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+                      GitHub
+                    </a>
+                  )}
+                  {profile.wikipedia_url && (
+                    <a href={profile.wikipedia_url} target="_blank" rel="noopener noreferrer" className="cf-pill cf-pill--wiki" onClick={() => trackClick('connect_follow', { action: 'click', target: 'wikipedia' })}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                      Wikipedia
+                    </a>
+                  )}
+                  {isPremium && subscribeUrl && (
+                    <a href={subscribeUrl} className="cf-pill cf-pill--podcast" onClick={() => trackClick('connect_follow', { action: 'click', target: 'podcast' })}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="11" r="3"/><path d="M12 1a9 9 0 0 1 9 9c0 3.87-2.57 8.07-7.72 12.4a.5.5 0 0 1-.56 0C7.57 18.07 3 13.87 3 10a9 9 0 0 1 9-9z"/></svg>
+                      Podcast
+                    </a>
+                  )}
+                </div>
               </div>
             </>
           )}
@@ -785,18 +938,133 @@ const EntityProfile = () => {
       {/* ── Share Modal ── */}
       <ShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} profile={profile} />
 
+      {/* Last Updated Meta */}
+      {!isEditing && lastUpdated && (
+        <div className="profile-last-updated">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+          By: {profile.name} &bull; Last updated: {lastUpdated} &bull; Profile ID: {profile.user_id?.slice(0, 8)}
+        </div>
+      )}
+
       {/* ════════════════════════════════════════════════
-          SECTION 2 — Grid (HQ + Primary Entity) — display only
+          SECTION 2 — Grid (Featured Service/HQ + Primary Entity) — display only
           ════════════════════════════════════════════════ */}
       {!isEditing && (
         <section className="profile-grid-2">
-          {profile.hq_image_url && (
-            <div className="profile-section-card" data-analytics-section="headquarters">
-              <div className="profile-section-header">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2" /><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="1" x2="9" y2="4" /><line x1="15" y1="1" x2="15" y2="4" /><line x1="9" y1="20" x2="9" y2="23" /><line x1="15" y1="20" x2="15" y2="23" /><line x1="20" y1="9" x2="23" y2="9" /><line x1="20" y1="14" x2="23" y2="14" /><line x1="1" y1="9" x2="4" y2="9" /><line x1="1" y1="14" x2="4" y2="14" /></svg>
-                <h3>Company Headquarters</h3>
+          {/* Left Column: Featured Service (premium) OR HQ (standard) */}
+          {isPremium && featuredContent ? (
+            <div className="profile-featured-service" data-analytics-section="featured_content">
+              {/* PREMIUM SHOWCASE badge */}
+              <div className="fs-showcase-badge">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                PREMIUM SHOWCASE
               </div>
-              <SafeImage src={profile.hq_image_url} alt="Company HQ" className="hq-image" fallbackClassName="hq-image-fallback" fallbackText={getInitials(profile.company || profile.name)} />
+
+              {/* Section Title */}
+              <div className="fs-title-row">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#06B6D4" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                <h3 className="fs-title">Featured Service</h3>
+              </div>
+
+              {/* Two-column: Info card + Image */}
+              <div className="fs-body">
+                <div className="fs-info-card">
+                  <div className="fs-company-name">{profile.company || profile.name}</div>
+                  <div className="fs-meta-grid">
+                    <div className="fs-meta-item"><span className="fs-meta-label">Sector:</span> <strong>{profile.sector}</strong></div>
+                    <div className="fs-meta-item"><span className="fs-meta-label">Location:</span> <strong>{profile.location}</strong></div>
+                    {profile.website_url && <div className="fs-meta-item"><span className="fs-meta-label">Website:</span> <a href={profile.website_url} className="fs-website-link" target="_blank" rel="noopener noreferrer">{profile.website_url.replace(/^https?:\/\//, '').replace(/\/.*$/, '')}</a></div>}
+                    <div className="fs-meta-item"><span className="fs-meta-label">Status:</span> <strong style={{textTransform:'capitalize'}}>{profile.status || 'Active'}</strong></div>
+                  </div>
+                  <p className="fs-description">{featuredContent.excerpt}</p>
+                </div>
+                <div className="fs-image-wrap">
+                  <SafeImage
+                    src={featuredContent.image_url || profile.hq_image_url}
+                    alt="Featured service"
+                    className="fs-image"
+                    fallbackClassName="fs-image-fallback"
+                    fallbackText={getInitials(profile.name)}
+                  />
+                  <div className="fs-img-overlay-top">Premium Showcase</div>
+                  <div className="fs-img-overlay-bottom">
+                    <span className="fs-img-badge fs-img-badge--verified">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      Verified Business
+                    </span>
+                    <span className="fs-img-badge fs-img-badge--premium">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                      Premium Profile
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Key Benefits */}
+              {featuredContent.key_benefits && featuredContent.key_benefits.length > 0 && (
+                <div className="fs-benefits">
+                  <div className="fs-benefits-label">KEY BENEFITS</div>
+                  {featuredContent.key_benefits.map((b, i) => (
+                    <span key={i} className="fs-benefit-pill">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#06B6D4" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                      {b}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Unique Differentiator */}
+              {featuredContent.highlight_quote && (
+                <div className="fs-differentiator">
+                  <div className="fs-differentiator-label">UNIQUE DIFFERENTIATOR</div>
+                  <p>{featuredContent.highlight_quote}</p>
+                </div>
+              )}
+
+              {/* Why Choose */}
+              {featuredContent.why_choose && (
+                <div className="fs-why-choose">
+                  <div className="fs-why-label">WHY CHOOSE THEM</div>
+                  <p>{featuredContent.why_choose}</p>
+                </div>
+              )}
+
+              {/* CTA */}
+              <a href={featuredContent.article_url || '#'} className="fs-cta" onClick={() => trackClick('featured_content', { action: 'discover_service' })}>
+                Discover the Service
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </a>
+              <div className="fs-footer-note">Displayed because this is a Premium Verified profile.</div>
+            </div>
+          ) : (
+            <div className="profile-section-card std-hq-card" data-analytics-section="headquarters">
+              <div className="profile-section-header">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/>
+                  <line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/>
+                  <line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/>
+                  <line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/>
+                  <line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/>
+                </svg>
+                <h3>Company Headquarters</h3>
+                <button
+                  className="hq-upload-btn"
+                  onClick={() => setEditingImageTarget('hq')}
+                  title="Upload Company HQ Image"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                  {profile.hq_image_url ? 'Change Image' : 'Upload Image'}
+                </button>
+              </div>
+              <img
+                src={profile.hq_image_url || 'https://images.unsplash.com/photo-1486325212027-8081e485255e?w=800&q=80&auto=format&fit=crop'}
+                alt={profile.hq_image_url ? 'Company HQ' : 'Company Headquarters Placeholder'}
+                className="hq-image"
+                onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1486325212027-8081e485255e?w=800&q=80&auto=format&fit=crop'; }}
+              />
             </div>
           )}
 
@@ -819,8 +1087,183 @@ const EntityProfile = () => {
               <div className="pe-signal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg><span>{profile.events_count} events</span></div>
               <div className="pe-signal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></svg><span>{profile.funding_raised || 'No funding data'}</span></div>
             </div>
+
+            {/* HQ Image (premium: shown inside PE card, always editable) */}
+            {isPremium && (
+              <div className="pe-hq-inline">
+                <div className="profile-section-header" style={{ marginBottom: '12px' }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2" /><rect x="9" y="9" width="6" height="6" /></svg>
+                  <h3 style={{ fontSize: '14px' }}>Company Headquarters</h3>
+                  <button
+                    className="hq-upload-btn"
+                    style={{ fontSize: '11px', padding: '4px 10px', marginLeft: 'auto' }}
+                    onClick={() => setEditingImageTarget('hq')}
+                    title="Upload Company HQ Image"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                      <circle cx="12" cy="13" r="4"/>
+                    </svg>
+                    {profile.hq_image_url ? 'Change' : 'Upload'}
+                  </button>
+                </div>
+                <SafeImage
+                  src={profile.hq_image_url}
+                  alt="Company HQ"
+                  className="hq-image"
+                  fallbackClassName="hq-image-fallback"
+                  fallbackText={getInitials(profile.company || profile.name)}
+                />
+              </div>
+            )}
+
             <div className="pe-seo-box">
               <strong>AI &amp; SEO Relevance:</strong> This structured entity data is optimized for AI assistants, search engines, and knowledge graph integration, ensuring maximum discoverability and authority verification.
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ════════════════════════════════════════════════
+          SECTION 2.5a — Company HQ Image (visible during edit, like hero photo)
+          ════════════════════════════════════════════════ */}
+      {isEditing && (
+        <section className="profile-section-card op-edit-section-wrap hq-edit-section" style={{ marginBottom: '32px' }}>
+          <div className="hq-edit-header">
+            <div className="profile-section-header" style={{ marginBottom: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/>
+                <line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/>
+                <line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/>
+              </svg>
+              <div>
+                <h3 style={{ marginBottom: 0 }}>Company Headquarters Image</h3>
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 400 }}>
+                  Shown on standard profiles (left card) and inside the Primary Entity card on premium profiles.
+                </span>
+              </div>
+            </div>
+            <button
+              className="hq-upload-btn"
+              onClick={() => setEditingImageTarget('hq')}
+              title="Upload Company HQ Image"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              {profile.hq_image_url ? 'Change Image' : 'Upload Image'}
+            </button>
+          </div>
+          <div className="hq-edit-preview">
+            <SafeImage
+              src={profile.hq_image_url}
+              alt="Company HQ"
+              className="hq-preview-img"
+              fallbackClassName="hq-preview-fallback"
+              fallbackText={getInitials(profile.company || profile.name)}
+            />
+            {profile.hq_image_url && (
+              <div className="hq-preview-badge-wrap">
+                <span className="hq-preview-badge">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  Image set
+                </span>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ════════════════════════════════════════════════
+          SECTION 2.5 — Featured Content / CTA (premium edit only)
+          ════════════════════════════════════════════════ */}
+      {isEditing && profile.is_premium && (
+        <section className="profile-section-card op-edit-section-wrap" style={{ marginBottom: '32px' }}>
+          <div className="op-section-edit-title-row">
+            <div className="profile-section-header" style={{ marginBottom: 0 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              <div>
+                <h3 style={{ marginBottom: 0 }}>Featured Service &amp; CTA</h3>
+                <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 400 }}>
+                  Premium showcase card content — shown only when this profile is premium.
+                </span>
+              </div>
+            </div>
+            <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+          </div>
+
+          <div className="op-inline-grid" style={{ marginBottom: 14 }}>
+            <div className="op-inline-field op-inline-grid--full">
+              <label className="op-inline-label">Excerpt / Service Description</label>
+              <textarea
+                className="op-inline-textarea"
+                rows={3}
+                value={form.featured_content?.excerpt || ''}
+                onChange={(e) => sfUpdateFeatured('excerpt', e.target.value)}
+                placeholder="e.g. Leading AI ethics consulting and framework development for enterprise organizations..."
+              />
+            </div>
+            <div className="op-inline-field">
+              <label className="op-inline-label">CTA Button URL ("Discover the Service")</label>
+              <input
+                className="op-inline-input"
+                type="url"
+                value={form.featured_content?.article_url || ''}
+                onChange={(e) => sfUpdateFeatured('article_url', e.target.value)}
+                placeholder="https://..."
+              />
+            </div>
+            <div className="op-inline-field">
+              <label className="op-inline-label">Featured Image URL</label>
+              <input
+                className="op-inline-input"
+                type="url"
+                value={form.featured_content?.image_url || ''}
+                onChange={(e) => sfUpdateFeatured('image_url', e.target.value)}
+                placeholder="https://..."
+              />
+            </div>
+            <div className="op-inline-field op-inline-grid--full">
+              <label className="op-inline-label">Unique Differentiator (Highlight Quote)</label>
+              <input
+                className="op-inline-input"
+                value={form.featured_content?.highlight_quote || ''}
+                onChange={(e) => sfUpdateFeatured('highlight_quote', e.target.value)}
+                placeholder="e.g. Only consultancy led by Stanford PhD researchers with direct policy advisory experience"
+              />
+            </div>
+            <div className="op-inline-field op-inline-grid--full">
+              <label className="op-inline-label">Why Choose Them</label>
+              <textarea
+                className="op-inline-textarea"
+                rows={2}
+                value={form.featured_content?.why_choose || ''}
+                onChange={(e) => sfUpdateFeatured('why_choose', e.target.value)}
+                placeholder="e.g. We help organizations build AI systems that are not just powerful, but trustworthy..."
+              />
+            </div>
+          </div>
+
+          {/* Key Benefits */}
+          <div style={{ marginTop: 4 }}>
+            <label className="op-inline-label" style={{ marginBottom: 8, display: 'block' }}>Key Benefits</label>
+            <div className="op-trusted-edit-wrap" style={{ marginBottom: 8 }}>
+              {(form.featured_content?.key_benefits || []).map((b, i) => (
+                <span key={i} className="op-trusted-edit-chip" style={{ background: '#ECFDF5', color: '#065F46', borderColor: '#6EE7B7' }}>
+                  {b}
+                  <button onClick={() => sfRemoveBenefit(i)}>&times;</button>
+                </span>
+              ))}
+            </div>
+            <div className="op-trusted-add-row">
+              <input
+                value={inlineBenefitInput}
+                onChange={(e) => setInlineBenefitInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sfAddBenefit(); } }}
+                placeholder="Type a benefit and press Enter or click + Add"
+              />
+              <button onClick={sfAddBenefit}>+ Add</button>
             </div>
           </div>
         </section>

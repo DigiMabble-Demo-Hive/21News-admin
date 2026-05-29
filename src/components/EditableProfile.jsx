@@ -6,9 +6,29 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
   const [form, setForm] = useState({ ...profile });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [benefitInput, setBenefitInput] = useState('');
   const isDirty = JSON.stringify(form) !== JSON.stringify(profile);
 
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const updateFeatured = (field, value) =>
+    setForm((prev) => ({
+      ...prev,
+      featured_content: { ...(prev.featured_content || {}), [field]: value },
+    }));
+
+  const addBenefit = () => {
+    if (!benefitInput.trim()) return;
+    const benefits = form.featured_content?.key_benefits || [];
+    updateFeatured('key_benefits', [...benefits, benefitInput.trim()]);
+    setBenefitInput('');
+  };
+
+  const removeBenefit = (i) => {
+    const benefits = [...(form.featured_content?.key_benefits || [])];
+    benefits.splice(i, 1);
+    updateFeatured('key_benefits', benefits);
+  };
 
   const updateAuthority = (key, value, max) => {
     let numValue = Number(value);
@@ -18,12 +38,11 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
 
     setForm((prev) => {
       const newForm = { ...prev, [key]: numValue };
-      const linkedin = key === 'linkedin_presence' ? numValue : Number(prev.linkedin_presence || 0);
-      const media = key === 'media_presence' ? numValue : Number(prev.media_presence || 0);
-      const digital = key === 'digital_presence' ? numValue : Number(prev.digital_presence || 0);
+      const linkedin    = key === 'linkedin_presence'        ? numValue : Number(prev.linkedin_presence        || 0);
+      const media       = key === 'media_presence'           ? numValue : Number(prev.media_presence           || 0);
+      const digital     = key === 'digital_presence'         ? numValue : Number(prev.digital_presence         || 0);
       const credibility = key === 'professional_credibility' ? numValue : Number(prev.professional_credibility || 0);
-      const content = key === 'content_activity' ? numValue : Number(prev.content_activity || 0);
-
+      const content     = key === 'content_activity'         ? numValue : Number(prev.content_activity         || 0);
       newForm.authority_score = linkedin + media + digital + credibility + content;
       return newForm;
     });
@@ -66,35 +85,45 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
     setError('');
     try {
       const updateData = {
-        name: form.name,
-        role: form.role,
-        subtitle: form.subtitle,
-        bio: form.bio,
-        location: form.location,
-        sector: form.sector,
-        company: form.company,
-        status: form.status,
-        active_since: form.active_since,
-        linkedin_url: form.linkedin_url,
-        website_url: form.website_url,
-        trust_tags: form.trust_tags,
-        awards: form.awards,
-        videos: form.videos,
-        publications: form.publications,
-        quick_facts: form.quick_facts,
-        authority_score: form.authority_score,
-        authority_percentile: form.authority_percentile,
-        linkedin_presence: form.linkedin_presence,
-        media_presence: form.media_presence,
-        digital_presence: form.digital_presence,
+        name:                     form.name,
+        role:                     form.role,
+        subtitle:                 form.subtitle,
+        bio:                      form.bio,
+        location:                 form.location,
+        sector:                   form.sector,
+        company:                  form.company,
+        status:                   form.status,
+        active_since:             form.active_since,
+        is_premium:               form.is_premium,
+        // Social links
+        website_url:              form.website_url,
+        linkedin_url:             form.linkedin_url,
+        twitter_url:              form.twitter_url,
+        facebook_url:             form.facebook_url,
+        instagram_url:            form.instagram_url,
+        youtube_url:              form.youtube_url,
+        medium_url:               form.medium_url,
+        github_url:               form.github_url,
+        wikipedia_url:            form.wikipedia_url,
+        subscribe_url:            form.subscribe_url,
+        // Premium featured content
+        featured_content:         form.featured_content,
+        // Profile data
+        trust_tags:               form.trust_tags,
+        awards:                   form.awards,
+        videos:                   form.videos,
+        publications:             form.publications,
+        quick_facts:              form.quick_facts,
+        authority_score:          form.authority_score,
+        authority_percentile:     form.authority_percentile,
+        linkedin_presence:        form.linkedin_presence,
+        media_presence:           form.media_presence,
+        digital_presence:         form.digital_presence,
         professional_credibility: form.professional_credibility,
-        content_activity: form.content_activity,
+        content_activity:         form.content_activity,
       };
 
-      await updateAdminProfile({
-        userId: profile.user_id,
-        updateData,
-      });
+      await updateAdminProfile({ userId: profile.user_id, updateData });
       onSave({ ...profile, ...updateData });
     } catch (err) {
       console.error('Save error:', err);
@@ -105,16 +134,15 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
   };
 
   const handleCancel = () => {
-    if (isDirty && !window.confirm('Discard your unsaved profile changes?')) {
-      return;
-    }
-
+    if (isDirty && !window.confirm('Discard your unsaved profile changes?')) return;
     onCancel();
   };
 
+  const fc = form.featured_content || {};
+
   return (
     <div className="editable-profile">
-      {/* Save/Cancel Bar */}
+      {/* ── Save / Cancel Bar ── */}
       <div className="ep-action-bar">
         <div className="ep-action-bar-left">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -135,7 +163,33 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
         </div>
       </div>
 
-      {/* Basic Info */}
+      {/* ── Subscription ── */}
+      <div className="ep-section">
+        <h4 className="ep-section-title">Subscription</h4>
+        <div className="ep-premium-toggle-row">
+          <div className="ep-premium-toggle-info">
+            <span className="ep-premium-toggle-label">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#F59E0B' }}>
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+              </svg>
+              Premium Profile
+            </span>
+            <span className="ep-premium-toggle-desc">
+              Enables the Featured Service showcase, green premium badge, full Connect &amp; Follow panel with Podcast link, and premium visual styling (fade-up animations, card glow effects).
+            </span>
+          </div>
+          <label className="ep-toggle">
+            <input
+              type="checkbox"
+              checked={!!form.is_premium}
+              onChange={(e) => update('is_premium', e.target.checked)}
+            />
+            <span className="ep-toggle-slider" />
+          </label>
+        </div>
+      </div>
+
+      {/* ── Basic Information ── */}
       <div className="ep-section">
         <h4 className="ep-section-title">Basic Information</h4>
         <div className="ep-grid">
@@ -158,7 +212,7 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
         </div>
       </div>
 
-      {/* Details */}
+      {/* ── Details ── */}
       <div className="ep-section">
         <h4 className="ep-section-title">Details</h4>
         <div className="ep-grid">
@@ -185,22 +239,145 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
         </div>
       </div>
 
-      {/* Social Links */}
+      {/* ── Social Links ── */}
       <div className="ep-section">
         <h4 className="ep-section-title">Social Links</h4>
         <div className="ep-grid">
+          <div className="ep-field">
+            <label>Website URL</label>
+            <input type="url" value={form.website_url || ''} onChange={(e) => update('website_url', e.target.value)} placeholder="https://..." />
+          </div>
           <div className="ep-field">
             <label>LinkedIn URL</label>
             <input type="url" value={form.linkedin_url || ''} onChange={(e) => update('linkedin_url', e.target.value)} placeholder="https://linkedin.com/in/..." />
           </div>
           <div className="ep-field">
-            <label>Website URL</label>
-            <input type="url" value={form.website_url || ''} onChange={(e) => update('website_url', e.target.value)} placeholder="https://..." />
+            <label>X (Twitter) URL</label>
+            <input type="url" value={form.twitter_url || ''} onChange={(e) => update('twitter_url', e.target.value)} placeholder="https://x.com/..." />
           </div>
+          <div className="ep-field">
+            <label>Facebook URL</label>
+            <input type="url" value={form.facebook_url || ''} onChange={(e) => update('facebook_url', e.target.value)} placeholder="https://facebook.com/..." />
+          </div>
+          <div className="ep-field">
+            <label>Instagram URL</label>
+            <input type="url" value={form.instagram_url || ''} onChange={(e) => update('instagram_url', e.target.value)} placeholder="https://instagram.com/..." />
+          </div>
+          <div className="ep-field">
+            <label>YouTube URL</label>
+            <input type="url" value={form.youtube_url || ''} onChange={(e) => update('youtube_url', e.target.value)} placeholder="https://youtube.com/..." />
+          </div>
+          <div className="ep-field">
+            <label>Medium URL</label>
+            <input type="url" value={form.medium_url || ''} onChange={(e) => update('medium_url', e.target.value)} placeholder="https://medium.com/..." />
+          </div>
+          <div className="ep-field">
+            <label>GitHub URL</label>
+            <input type="url" value={form.github_url || ''} onChange={(e) => update('github_url', e.target.value)} placeholder="https://github.com/..." />
+          </div>
+          <div className="ep-field">
+            <label>Wikipedia URL</label>
+            <input type="url" value={form.wikipedia_url || ''} onChange={(e) => update('wikipedia_url', e.target.value)} placeholder="https://en.wikipedia.org/wiki/..." />
+          </div>
+          {form.is_premium && (
+            <div className="ep-field">
+              <label>
+                Subscribe / Podcast URL
+                <span className="ep-premium-tag">Premium</span>
+              </label>
+              <input type="url" value={form.subscribe_url || ''} onChange={(e) => update('subscribe_url', e.target.value)} placeholder="https://..." />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Trust Tags */}
+      {/* ── Featured Service (Premium Showcase) — only for premium profiles ── */}
+      {form.is_premium && (
+        <div className="ep-section">
+          <div className="ep-section-header">
+            <div>
+              <h4 className="ep-section-title" style={{ marginBottom: 4 }}>
+                Featured Service
+                <span className="ep-premium-tag">Premium</span>
+              </h4>
+              <p className="ep-section-desc">
+                Shown in the left grid card for premium profiles. Falls back to placeholder data when empty.
+              </p>
+            </div>
+          </div>
+
+          <div className="ep-grid">
+            <div className="ep-field ep-field--full">
+              <label>Excerpt / Service Description</label>
+              <textarea
+                rows={3}
+                value={fc.excerpt || ''}
+                onChange={(e) => updateFeatured('excerpt', e.target.value)}
+                placeholder="e.g. Leading AI ethics consulting and framework development for enterprise organizations..."
+              />
+            </div>
+            <div className="ep-field">
+              <label>CTA Button URL ("Discover the Service")</label>
+              <input
+                type="url"
+                value={fc.article_url || ''}
+                onChange={(e) => updateFeatured('article_url', e.target.value)}
+                placeholder="https://..."
+              />
+            </div>
+            <div className="ep-field">
+              <label>Featured Image URL</label>
+              <input
+                type="url"
+                value={fc.image_url || ''}
+                onChange={(e) => updateFeatured('image_url', e.target.value)}
+                placeholder="https://..."
+              />
+            </div>
+            <div className="ep-field ep-field--full">
+              <label>Unique Differentiator (Highlight Quote)</label>
+              <input
+                value={fc.highlight_quote || ''}
+                onChange={(e) => updateFeatured('highlight_quote', e.target.value)}
+                placeholder="e.g. Only consultancy led by Stanford PhD researchers with direct policy advisory experience"
+              />
+            </div>
+            <div className="ep-field ep-field--full">
+              <label>Why Choose Them</label>
+              <textarea
+                rows={2}
+                value={fc.why_choose || ''}
+                onChange={(e) => updateFeatured('why_choose', e.target.value)}
+                placeholder="e.g. We help organizations build AI systems that are not just powerful, but trustworthy..."
+              />
+            </div>
+          </div>
+
+          {/* Key Benefits */}
+          <div className="ep-benefits-wrap">
+            <p className="ep-benefits-label">Key Benefits</p>
+            <div className="ep-tags" style={{ marginBottom: 8 }}>
+              {(fc.key_benefits || []).map((b, i) => (
+                <span key={i} className="ep-tag ep-tag--benefit">
+                  {b}
+                  <button onClick={() => removeBenefit(i)} className="ep-tag-remove">&times;</button>
+                </span>
+              ))}
+            </div>
+            <div className="ep-benefit-add-row">
+              <input
+                value={benefitInput}
+                onChange={(e) => setBenefitInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addBenefit(); } }}
+                placeholder="Type a benefit and press Enter or click + Add"
+              />
+              <button className="ep-add-btn" onClick={addBenefit}>+ Add</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Trust Tags ── */}
       <div className="ep-section">
         <h4 className="ep-section-title">Trust Tags</h4>
         <div className="ep-tags">
@@ -214,10 +391,10 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
         <input className="ep-tag-input" placeholder="Type tag and press Enter..." onKeyDown={handleTagAdd} />
       </div>
 
-      {/* Awards */}
+      {/* ── Awards ── */}
       <div className="ep-section">
         <div className="ep-section-header">
-          <h4 className="ep-section-title">Awards & Recognition</h4>
+          <h4 className="ep-section-title">Awards &amp; Recognition</h4>
           <button className="ep-add-btn" onClick={() => addArrayItem('awards', { title: '', issuer: '', year: '', tag: '', description: '' })}>+ Add Award</button>
         </div>
         {(form.awards || []).map((award, i) => (
@@ -234,7 +411,7 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
         ))}
       </div>
 
-      {/* Videos */}
+      {/* ── Videos ── */}
       <div className="ep-section">
         <div className="ep-section-header">
           <h4 className="ep-section-title">Videos</h4>
@@ -253,7 +430,7 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
         ))}
       </div>
 
-      {/* Publications */}
+      {/* ── Publications ── */}
       <div className="ep-section">
         <div className="ep-section-header">
           <h4 className="ep-section-title">Publications</h4>
@@ -267,13 +444,13 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
               <div className="ep-field"><label>Journal</label><input value={pub.journal || ''} onChange={(e) => updateNestedArray('publications', i, 'journal', e.target.value)} placeholder="e.g. Tech Journal" /></div>
               <div className="ep-field"><label>Date</label><input value={pub.date || ''} onChange={(e) => updateNestedArray('publications', i, 'date', e.target.value)} placeholder="e.g. 2023-05-20" /></div>
               <div className="ep-field"><label>Type</label><input value={pub.type || ''} onChange={(e) => updateNestedArray('publications', i, 'type', e.target.value)} placeholder="e.g. Article" /></div>
-              <div className="ep-field ep-field--full"><label>URL</label><input value={pub.url || ''} onChange={(e) => updateNestedArray('publications', i, 'url', e.target.value)} placeholder="e.g. https://..." /></div>
+              <div className="ep-field ep-field--full"><label>URL</label><input type="url" value={pub.url || ''} onChange={(e) => updateNestedArray('publications', i, 'url', e.target.value)} placeholder="e.g. https://..." /></div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Quick Facts */}
+      {/* ── Quick Facts ── */}
       <div className="ep-section">
         <div className="ep-section-header">
           <h4 className="ep-section-title">Quick Facts</h4>
@@ -291,36 +468,36 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
         ))}
       </div>
 
-      {/* Authority Intelligence */}
+      {/* ── Authority Intelligence ── */}
       <div className="ep-section">
         <h4 className="ep-section-title">Authority Intelligence</h4>
         <div className="ep-grid">
           <div className="ep-field">
-            <label>Authority Score (Overall)</label>
-            <input type="number" value={form.authority_score || 0} readOnly className="ep-readonly-input" title="Calculated automatically from categories below" />
+            <label>Authority Score (auto-calculated)</label>
+            <input type="number" value={form.authority_score || 0} readOnly className="ep-readonly-input" title="Calculated automatically from sub-scores below" />
           </div>
           <div className="ep-field">
             <label>Authority Percentile</label>
             <input value={form.authority_percentile || ''} onChange={(e) => update('authority_percentile', e.target.value)} placeholder="e.g. Top 1%" />
           </div>
           <div className="ep-field">
-            <label>LinkedIn Presence (Max 25)</label>
+            <label>LinkedIn Presence (max 25)</label>
             <input type="number" value={form.linkedin_presence || 0} onChange={(e) => updateAuthority('linkedin_presence', e.target.value, 25)} min="0" max="25" />
           </div>
           <div className="ep-field">
-            <label>Media Presence (Max 20)</label>
+            <label>Media Presence (max 20)</label>
             <input type="number" value={form.media_presence || 0} onChange={(e) => updateAuthority('media_presence', e.target.value, 20)} min="0" max="20" />
           </div>
           <div className="ep-field">
-            <label>Digital Presence (Max 15)</label>
+            <label>Digital Presence (max 15)</label>
             <input type="number" value={form.digital_presence || 0} onChange={(e) => updateAuthority('digital_presence', e.target.value, 15)} min="0" max="15" />
           </div>
           <div className="ep-field">
-            <label>Professional Credibility (Max 15)</label>
+            <label>Professional Credibility (max 15)</label>
             <input type="number" value={form.professional_credibility || 0} onChange={(e) => updateAuthority('professional_credibility', e.target.value, 15)} min="0" max="15" />
           </div>
           <div className="ep-field">
-            <label>Content Activity (Max 25)</label>
+            <label>Content Activity (max 25)</label>
             <input type="number" value={form.content_activity || 0} onChange={(e) => updateAuthority('content_activity', e.target.value, 25)} min="0" max="25" />
           </div>
         </div>
