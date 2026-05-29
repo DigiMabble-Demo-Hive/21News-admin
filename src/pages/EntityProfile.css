@@ -1815,14 +1815,6 @@
   }
 }
 
-/* Standard-only hero background & gold border-bottom */
-.profile-page:not(.profile-page--premium) .profile-hero {
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.18) 0%, #EEF0F5 100%);
-  border-bottom: 1.11px solid rgba(255, 215, 0, 0.35);
-  border-radius: var(--radius-xl);
-  padding: 24px;
-  margin-bottom: 40px;
-}
 
 /* --- Last Updated Meta Line --- */
 .profile-last-updated {

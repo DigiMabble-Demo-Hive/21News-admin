@@ -94,7 +94,6 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
         company:                  form.company,
         status:                   form.status,
         active_since:             form.active_since,
-        is_premium:               form.is_premium,
         // Social links
         website_url:              form.website_url,
         linkedin_url:             form.linkedin_url,
@@ -160,32 +159,6 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
           <button className="ep-btn ep-btn--save" onClick={handleSave} disabled={saving || !isDirty}>
             {saving ? <><div className="ep-spinner" /> Saving...</> : 'Save Changes'}
           </button>
-        </div>
-      </div>
-
-      {/* ── Subscription ── */}
-      <div className="ep-section">
-        <h4 className="ep-section-title">Subscription</h4>
-        <div className="ep-premium-toggle-row">
-          <div className="ep-premium-toggle-info">
-            <span className="ep-premium-toggle-label">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#F59E0B' }}>
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-              </svg>
-              Premium Profile
-            </span>
-            <span className="ep-premium-toggle-desc">
-              Enables the Featured Service showcase, green premium badge, full Connect &amp; Follow panel with Podcast link, and premium visual styling (fade-up animations, card glow effects).
-            </span>
-          </div>
-          <label className="ep-toggle">
-            <input
-              type="checkbox"
-              checked={!!form.is_premium}
-              onChange={(e) => update('is_premium', e.target.checked)}
-            />
-            <span className="ep-toggle-slider" />
-          </label>
         </div>
       </div>
 
