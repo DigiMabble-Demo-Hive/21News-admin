@@ -110,27 +110,27 @@
 .cr-chip--pending { border-color: #bfdbfe; background-color: #eff6ff; color: #2563eb; }
 .cr-chip--pending .cr-chip-count { background-color: #bfdbfe; color: #2563eb; font-weight: 800; }
 .cr-chip--pending.active { background-color: #2563eb; border-color: #2563eb; color: #ffffff; }
-.cr-chip--pending.active .cr-chip-count { background-color: rgba(255, 255, 255, 0.25); color: #ffffff; }
+.cr-chip--pending.active .cr-chip-count { background-color: #ffffff; color: #2563eb; font-weight: 800; }
 
 .cr-chip--change-requested { border-color: #fde68a; background-color: #fffbeb; color: #d97706; }
 .cr-chip--change-requested .cr-chip-count { background-color: #fde68a; color: #d97706; font-weight: 800; }
 .cr-chip--change-requested.active { background-color: #d97706; border-color: #d97706; color: #ffffff; }
-.cr-chip--change-requested.active .cr-chip-count { background-color: rgba(255, 255, 255, 0.25); color: #ffffff; }
+.cr-chip--change-requested.active .cr-chip-count { background-color: #ffffff; color: #d97706; font-weight: 800; }
 
 .cr-chip--rejected { border-color: #fecaca; background-color: #fff1f2; color: #dc2626; }
 .cr-chip--rejected .cr-chip-count { background-color: #fecaca; color: #dc2626; font-weight: 800; }
 .cr-chip--rejected.active { background-color: #dc2626; border-color: #dc2626; color: #ffffff; }
-.cr-chip--rejected.active .cr-chip-count { background-color: rgba(255, 255, 255, 0.25); color: #ffffff; }
+.cr-chip--rejected.active .cr-chip-count { background-color: #ffffff; color: #dc2626; font-weight: 800; }
 
 .cr-chip--approved { border-color: #a7f3d0; background-color: #ecfdf5; color: #059669; }
 .cr-chip--approved .cr-chip-count { background-color: #a7f3d0; color: #059669; font-weight: 800; }
 .cr-chip--approved.active { background-color: #059669; border-color: #059669; color: #ffffff; }
-.cr-chip--approved.active .cr-chip-count { background-color: rgba(255, 255, 255, 0.25); color: #ffffff; }
+.cr-chip--approved.active .cr-chip-count { background-color: #ffffff; color: #059669; font-weight: 800; }
 
 .cr-chip--all { border-color: #cbd5e1; background-color: #f8fafc; color: #475569; }
 .cr-chip--all .cr-chip-count { background-color: #cbd5e1; color: #475569; font-weight: 800; }
 .cr-chip--all.active { background-color: #475569; border-color: #475569; color: #ffffff; }
-.cr-chip--all.active .cr-chip-count { background-color: rgba(255, 255, 255, 0.25); color: #ffffff; }
+.cr-chip--all.active .cr-chip-count { background-color: #ffffff; color: #475569; font-weight: 800; }
 
 /* Change Request Cards Grid */
 .cr-grid {
