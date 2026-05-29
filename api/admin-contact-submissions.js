@@ -57,7 +57,7 @@ export default async function handler(req, res) {
 
     return res.status(400).json({ error: `Unknown action: ${action}` });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = err?.message || (err && typeof err === 'object' ? JSON.stringify(err) : String(err));
     console.error('admin-contact-submissions error:', err);
     return res.status(400).json({ error: msg });
   }

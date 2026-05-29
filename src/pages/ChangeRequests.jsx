@@ -114,6 +114,8 @@ export default function ChangeRequests() {
   const [activeChangeField, setActiveChangeField] = useState(null);
   const [submittedProposed, setSubmittedProposed] = useState({});
   const [profileImages, setProfileImages] = useState({});
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [answeredFields, setAnsweredFields] = useState({});
 
   // Confirm + success modal state
   const [actionConfirm, setActionConfirm] = useState(null); // { type: 'approved'|'change_requested'|'rejected' }
@@ -166,6 +168,111 @@ export default function ChangeRequests() {
       { key: 'quick_facts', label: 'Quick Facts' }
     ];
     return fields.filter(f => isFieldChanged(f.key));
+  };
+
+  const getProposedFields = () => {
+    if (!liveProfile || !submittedProposed) return [];
+    const fields = [
+      { key: 'name', label: 'Name' },
+      { key: 'role', label: 'Role' },
+      { key: 'subtitle', label: 'Subtitle' },
+      { key: 'sector', label: 'Sector' },
+      { key: 'location', label: 'Location' },
+      { key: 'active_since', label: 'Since Year' },
+      { key: 'bio', label: 'Biography' },
+      { key: 'linkedin_url', label: 'LinkedIn URL' },
+      { key: 'website_url', label: 'Website URL' },
+      { key: 'company', label: 'Company' },
+      { key: 'status', label: 'Status' },
+      { key: 'trust_tags', label: 'Trust Tags' },
+      { key: 'awards', label: 'Awards' },
+      { key: 'videos', label: 'Videos' },
+      { key: 'publications', label: 'Publications' },
+      { key: 'quick_facts', label: 'Quick Facts' }
+    ];
+    return fields.filter(f => {
+      const orig = liveProfile?.[f.key] || '';
+      const prop = submittedProposed?.[f.key];
+      if (prop === undefined) return false;
+      if (Array.isArray(orig) || Array.isArray(prop)) {
+        return JSON.stringify(orig) !== JSON.stringify(prop);
+      }
+      return String(orig) !== String(prop);
+    });
+  };
+
+  const getArrayVal = (key) => {
+    const val = editForm[key] !== undefined ? editForm[key] : (liveProfile?.[key] || []);
+    if (Array.isArray(val)) return val;
+    try {
+      if (typeof val === 'string') {
+        const parsed = JSON.parse(val);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  };
+
+  const renderArrayValuePreview = (key, val, otherVal, isDeleted) => {
+    if (!val) return <span className="cr-value-empty">None</span>;
+    let arr = val;
+    if (typeof val === 'string') {
+      try { arr = JSON.parse(val); } catch { arr = []; }
+    }
+    let otherArr = otherVal || [];
+    if (typeof otherVal === 'string') {
+      try { otherArr = JSON.parse(otherVal); } catch { otherArr = []; }
+    }
+    if (!Array.isArray(otherArr)) otherArr = [];
+
+    if (!Array.isArray(arr) || arr.length === 0) {
+      return <span className="cr-value-empty">None (Cleared)</span>;
+    }
+    
+    const otherStrings = new Set(otherArr.map(item => JSON.stringify(item)));
+
+    return (
+      <div className="cr-compare-array-preview-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px', textAlign: 'left', width: '100%' }}>
+        {arr.map((item, idx) => {
+          let text = '';
+          if (key === 'quick_facts') {
+            text = `${item.label || 'Fact'}: "${item.value || '—'}" (${item.verified_sources || 0} sources)`;
+          } else if (key === 'awards') {
+            text = `${item.year || 'Year'} - ${item.title || 'Title'} (${item.issuer || 'Issuer'}) [${item.tag || 'Verified'}]${item.description ? ` — ${item.description}` : ''}`;
+          } else if (key === 'videos') {
+            text = `${item.title || 'Video'} [${item.type || 'Video'}]${item.duration ? ` (${item.duration})` : ''}${item.views ? ` — ${item.views} views` : ''}`;
+          } else if (key === 'publications') {
+            text = `[${item.type || 'Publication'}] ${item.title || 'Title'} in ${item.journal || 'Journal'} (${item.date || 'Date'})`;
+          } else if (key === 'trust_tags') {
+            text = `${item.name || 'Tag'} [${item.type || 'Tag'}]`;
+          } else {
+            text = JSON.stringify(item);
+          }
+
+          const isIdentical = otherStrings.has(JSON.stringify(item));
+          let itemClass = '';
+          let itemStyle = { color: '#334155', fontWeight: 500 };
+
+          if (!isIdentical) {
+            itemStyle = undefined;
+            if (isDeleted) {
+              itemClass = 'cr-value-deleted';
+            } else {
+              itemClass = 'cr-value-added';
+            }
+          }
+
+          return (
+            <div key={idx} className="cr-compare-array-preview-item" style={{ fontSize: '13px', lineHeight: 1.5, display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+              <span style={{ color: isIdentical ? '#cbd5e1' : '#94a3b8' }}>•</span>
+              <span className={itemClass} style={itemStyle}>{text}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   const scrollToAndHighlightField = (key) => {
@@ -256,17 +363,33 @@ export default function ChangeRequests() {
     setSelected(req);
     setComment('');
     setLiveProfile(null);
+    setSidebarCollapsed(false);
+    setAnsweredFields({});
     
     const userId = req.email.split('@')[0];
-    await loadLiveProfile(userId);
-
     try {
-      const payload = JSON.parse(req.message);
-      // Initialize edit form: start with live values, layer proposed values over them
-      setEditForm(payload.proposed || {});
+      const { data: activeProfile, error } = await supabase
+        .from('entities_master')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      setLiveProfile(activeProfile || null);
+
+      const payload = JSON.parse(req.message || '{}');
       setSubmittedProposed(payload.proposed || {});
       setComment(payload.admin_comment || '');
-    } catch {
+
+      const initialForm = {};
+      if (activeProfile) {
+        Object.keys(activeProfile).forEach(key => {
+          initialForm[key] = activeProfile[key];
+        });
+      }
+      setEditForm(initialForm);
+    } catch (err) {
+      console.error('Error loading request review:', err);
       setEditForm({});
       setSubmittedProposed({});
     }
@@ -297,14 +420,51 @@ export default function ChangeRequests() {
     let payload = { original: {}, proposed: {}, admin_comment: '' };
     try { payload = JSON.parse(selected.message); } catch { /* keep default */ }
 
-    const finalProposed = editForm;
+    const SAFE_FIELDS = [
+      'name', 'role', 'subtitle', 'bio', 'location', 'sector', 'company',
+      'status', 'active_since', 'linkedin_url', 'website_url', 'trust_tags',
+      'awards', 'videos', 'publications', 'quick_facts', 'image_url',
+      'is_premium', 'badge'
+    ];
+    const finalProposed = {};
+    SAFE_FIELDS.forEach(field => {
+      if (editForm[field] !== undefined) {
+        finalProposed[field] = editForm[field];
+      }
+    });
+    // Filter original and proposed to ONLY include the audited/changed fields to fit under the CHECK constraint "message_length" limit
+    const filteredOriginal = {};
+    const filteredProposed = {};
+    const proposedFieldsList = getProposedFields();
+    
+    proposedFieldsList.forEach(field => {
+      const key = field.key;
+      // Extract original live value
+      if (liveProfile && liveProfile[key] !== undefined) {
+        filteredOriginal[key] = liveProfile[key];
+      } else if (payload.original && payload.original[key] !== undefined) {
+        filteredOriginal[key] = payload.original[key];
+      } else {
+        filteredOriginal[key] = '';
+      }
+
+      // Extract the audited proposed value
+      if (editForm[key] !== undefined) {
+        filteredProposed[key] = editForm[key];
+      } else if (submittedProposed[key] !== undefined) {
+        filteredProposed[key] = submittedProposed[key];
+      } else {
+        filteredProposed[key] = '';
+      }
+    });
+
     const finalComment = comment ||
       (statusType === 'approved'         ? 'Your profile changes have been approved and published.' :
        statusType === 'change_requested' ? 'Please make the requested profile adjustments.' :
        'Proposed changes have been declined by the admin.');
     const messagePayload = JSON.stringify({
-      original:      payload.original || {},
-      proposed:      finalProposed,
+      original:      filteredOriginal,
+      proposed:      filteredProposed,
       admin_comment: finalComment,
       reviewer_name: reviewerName || '21News Admin',
       reviewed_at:   new Date().toISOString(),
@@ -321,14 +481,16 @@ export default function ChangeRequests() {
     try {
       await updateAdminProfile({ userId, updateData: profileUpdateData, table: 'entities_master' });
     } catch (err) {
-      profileSyncError = err.message;
+      profileSyncError = err?.message || (err && typeof err === 'object' ? JSON.stringify(err) : String(err));
+      console.error('Profile sync failed error details:', err);
     }
 
     // --- contact_submissions status update ---
     try {
       await updateSubmissionStatus(selected.id, statusType, messagePayload);
     } catch (err) {
-      submissionSyncError = err.message;
+      submissionSyncError = err?.message || (err && typeof err === 'object' ? JSON.stringify(err) : String(err));
+      console.error('Submission status sync failed error details:', err);
     }
 
     setActionLoading(false);
@@ -476,6 +638,11 @@ export default function ChangeRequests() {
     const totalRequests = filtered.length;
     const changedFields = getChangedFields();
 
+    const proposedFields = getProposedFields();
+    const totalProposed = proposedFields.length;
+    const answeredCount = proposedFields.filter(f => answeredFields[f.key] !== undefined).length;
+    const allAnswered = totalProposed > 0 ? answeredCount === totalProposed : true;
+
     const handlePrevRequest = () => {
       if (currentIndex > 0) {
         handleReview(filtered[currentIndex - 1]);
@@ -491,10 +658,49 @@ export default function ChangeRequests() {
     // Unified field wrapper to handle click comparison & glow highlighting
     const renderClickableField = (key, label, children) => {
       const isChanged = isFieldChanged(key);
+      const isAnswered = answeredFields[key] !== undefined;
+      const shouldHighlight = isChanged && !isAnswered;
+
+      let badgeElement = null;
+      if (isChanged) {
+        if (isAnswered) {
+          const status = answeredFields[key];
+          if (status === 'accepted') {
+            badgeElement = (
+              <span className="cr-inline-change-badge" style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', boxShadow: '0 4px 6px rgba(16, 185, 129, 0.2)' }}>
+                <CheckCircle size={10} style={{ marginRight: '4px' }} />
+                Accepted
+              </span>
+            );
+          } else if (status === 'reverted') {
+            badgeElement = (
+              <span className="cr-inline-change-badge" style={{ background: 'linear-gradient(135deg, #64748b 0%, #475569 100%)', boxShadow: '0 4px 6px rgba(100, 116, 139, 0.2)' }}>
+                <XCircle size={10} style={{ marginRight: '4px' }} />
+                Reverted
+              </span>
+            );
+          } else if (status === 'custom') {
+            badgeElement = (
+              <span className="cr-inline-change-badge" style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', boxShadow: '0 4px 6px rgba(249, 115, 22, 0.2)' }}>
+                <RefreshCw size={10} style={{ marginRight: '4px' }} />
+                Custom Override
+              </span>
+            );
+          }
+        } else {
+          badgeElement = (
+            <span className="cr-inline-change-badge">
+              <RefreshCw size={10} style={{ marginRight: '4px' }} />
+              Compare &amp; Edit
+            </span>
+          );
+        }
+      }
+
       return (
         <div 
           id={`cr-field-container-proposed-${key}`}
-          className={`cr-clickable-field-wrapper ${isChanged ? 'has-change' : ''}`}
+          className={`cr-clickable-field-wrapper ${shouldHighlight ? 'has-change' : ''}`}
           onClick={() => {
             if (isChanged) {
               scrollToAndHighlightField(key);
@@ -502,16 +708,12 @@ export default function ChangeRequests() {
             }
           }}
           title={isChanged ? `Click to compare and edit change for ${label}` : undefined}
+          style={isAnswered ? { border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 18px', margin: '14px 0', backgroundColor: '#f8fafc', cursor: 'pointer' } : undefined}
         >
           <div className="cr-field-content-block">
             {children}
           </div>
-          {isChanged && (
-            <span className="cr-inline-change-badge">
-              <RefreshCw size={10} style={{ marginRight: '4px' }} />
-              Compare &amp; Edit
-            </span>
-          )}
+          {badgeElement}
         </div>
       );
     };
@@ -579,12 +781,53 @@ export default function ChangeRequests() {
           </div>
 
           {/* Sticky Actions Bar */}
-          <div className="cr-review-actions-bar animate-fade-in">
+          <div className="cr-review-actions-bar animate-fade-in" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {(() => {
+              if (totalProposed === 0) return null;
+              if (!allAnswered) {
+                return (
+                  <div className="cr-audit-alert-banner pending animate-fade-in" style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    backgroundColor: '#fffbeb',
+                    border: '1px solid #fde68a',
+                    color: '#b45309',
+                    fontSize: '12.5px',
+                    fontWeight: 600
+                  }}>
+                    <AlertTriangle size={14} style={{ color: '#d97706', flexShrink: 0 }} />
+                    <span>Pending Audit: Please review and answer all proposed changes before finalizing ({answeredCount} of {totalProposed} answered)</span>
+                  </div>
+                );
+              } else {
+                return (
+                  <div className="cr-audit-alert-banner complete animate-fade-in" style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    backgroundColor: '#ecfdf5',
+                    border: '1px solid #a7f3d0',
+                    color: '#047857',
+                    fontSize: '12.5px',
+                    fontWeight: 600
+                  }}>
+                    <CheckCircle size={14} style={{ color: '#10b981', flexShrink: 0 }} />
+                    <span>Audit Complete: All proposed changes have been reviewed and answered. Action buttons unlocked.</span>
+                  </div>
+                );
+              }
+            })()}
+
             <div className="cr-action-btns">
               <button
                 className="cr-btn cr-btn--deny"
                 onClick={() => requestAction('rejected')}
-                disabled={actionLoading}
+                disabled={actionLoading || !allAnswered}
               >
                 <XCircle size={15} />
                 <span>Reject Edits</span>
@@ -592,7 +835,7 @@ export default function ChangeRequests() {
               <button
                 className="cr-btn cr-btn--request"
                 onClick={() => requestAction('change_requested')}
-                disabled={actionLoading}
+                disabled={actionLoading || !allAnswered}
               >
                 <AlertTriangle size={15} />
                 <span>Request Adjustments</span>
@@ -600,7 +843,7 @@ export default function ChangeRequests() {
               <button
                 className="cr-btn cr-btn--approve"
                 onClick={() => requestAction('approved')}
-                disabled={actionLoading}
+                disabled={actionLoading || !allAnswered}
               >
                 <CheckCircle size={15} />
                 <span>Approve &amp; Publish Changes</span>
@@ -1167,41 +1410,110 @@ export default function ChangeRequests() {
       </div>
 
       {/* Audit & Changes Index Sidebar (Right side) */}
-      <div className="cr-audit-index-sidebar">
+      <div className={`cr-audit-index-sidebar ${sidebarCollapsed ? 'cr-audit-index-sidebar--collapsed' : ''}`}>
         <div className="cr-sidebar-index-header">
           <div className="cr-sidebar-title-row">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#1E3A5F' }}><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             <h4>Audit Summary</h4>
           </div>
-          <span className="cr-sidebar-count">{changedFields.length} field{changedFields.length !== 1 ? 's' : ''}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className="cr-sidebar-count">{getProposedFields().length}</span>
+            <button 
+              className="cr-sidebar-toggle-btn"
+              onClick={() => setSidebarCollapsed(true)}
+              title="Collapse Sidebar"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#64748b',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '4px',
+                borderRadius: '6px',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
         
         <div className="cr-sidebar-index-body">
           <p className="cr-sidebar-index-tip">
             Click on any highlighted field below to compare the proposed change with the live site, inspect details, or make inline corrections.
           </p>
-          {changedFields.length === 0 ? (
+          {getProposedFields().length === 0 ? (
             <p className="cr-sidebar-empty">No changes proposed in this request.</p>
           ) : (
             <ul className="cr-sidebar-index-list">
-              {changedFields.map((field, idx) => (
-                <li 
-                  key={field.key}
-                  className={`cr-sidebar-index-item ${activeChangeField === field.key ? 'active' : ''}`}
-                  onClick={() => {
-                    scrollToAndHighlightField(field.key);
-                    setActiveChangeField(field.key);
-                  }}
-                >
-                  <span className="cr-sidebar-item-number">{idx + 1}</span>
-                  <span className="cr-sidebar-item-label">{field.label}</span>
-                  <span className="cr-sidebar-item-badge">Inspect</span>
-                </li>
-              ))}
+              {getProposedFields().map((field, idx) => {
+                const isAnswered = answeredFields[field.key] !== undefined;
+                
+                let badgeLabel = 'Needs Review';
+                let badgeBg = '#fffbeb';
+                let badgeColor = '#b45309';
+                let badgeBorder = '#fde68a';
+                let numberBg = '#d97706';
+
+                if (isAnswered) {
+                  const status = answeredFields[field.key];
+                  if (status === 'accepted') {
+                    badgeLabel = 'Accepted';
+                    badgeBg = '#ecfdf5';
+                    badgeColor = '#047857';
+                    badgeBorder = '#a7f3d0';
+                    numberBg = '#10b981';
+                  } else if (status === 'reverted') {
+                    badgeLabel = 'Reverted';
+                    badgeBg = '#f1f5f9';
+                    badgeColor = '#475569';
+                    badgeBorder = '#cbd5e1';
+                    numberBg = '#64748b';
+                  } else if (status === 'custom') {
+                    badgeLabel = 'Custom';
+                    badgeBg = '#fff7ed';
+                    badgeColor = '#c2410c';
+                    badgeBorder = '#fed7aa';
+                    numberBg = '#f97316';
+                  }
+                }
+
+                return (
+                  <li 
+                    key={field.key}
+                    className={`cr-sidebar-index-item ${activeChangeField === field.key ? 'active' : ''}`}
+                    onClick={() => {
+                      scrollToAndHighlightField(field.key);
+                      setActiveChangeField(field.key);
+                    }}
+                  >
+                    <span className="cr-sidebar-item-number" style={{ background: numberBg }}>{idx + 1}</span>
+                    <span className="cr-sidebar-item-label">{field.label}</span>
+                    <span className="cr-sidebar-item-badge" style={{ background: badgeBg, color: badgeColor, borderColor: badgeBorder }}>
+                      {badgeLabel}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
       </div>
+
+      {/* Floating Sidebar Expand Trigger */}
+      {sidebarCollapsed && (
+        <button 
+          className="cr-sidebar-expand-trigger" 
+          onClick={() => setSidebarCollapsed(false)}
+          title="Expand Audit Summary Sidebar"
+        >
+          <ChevronLeft size={14} style={{ marginBottom: '6px' }} />
+          <span>Audit Summary ({getProposedFields().length})</span>
+        </button>
+      )}
 
     </div>
 
@@ -1222,10 +1534,12 @@ export default function ChangeRequests() {
                   <div className="cr-compare-pane old">
                     <span className="cr-compare-label">Current Live on Site</span>
                     <div className="cr-compare-value">
-                      {liveProfile?.[activeChangeField] ? (
+                      {liveProfile?.[activeChangeField] !== undefined && liveProfile?.[activeChangeField] !== null ? (
                         activeChangeField === 'bio'
                           ? renderBiographyWords(liveProfile?.bio, getPropVal(activeChangeField), false)
-                          : <span className="cr-value-deleted">{liveProfile?.[activeChangeField]}</span>
+                          : ['trust_tags', 'awards', 'videos', 'publications', 'quick_facts'].includes(activeChangeField)
+                            ? renderArrayValuePreview(activeChangeField, liveProfile[activeChangeField], submittedProposed[activeChangeField], true)
+                            : <span className="cr-value-deleted">{String(liveProfile[activeChangeField])}</span>
                       ) : (
                         <span className="cr-value-empty">None (Not set)</span>
                       )}
@@ -1236,10 +1550,12 @@ export default function ChangeRequests() {
                   <div className="cr-compare-pane new">
                     <span className="cr-compare-label">User's Proposed Change</span>
                     <div className="cr-compare-value">
-                      {submittedProposed?.[activeChangeField] ? (
+                      {submittedProposed?.[activeChangeField] !== undefined && submittedProposed?.[activeChangeField] !== null ? (
                         activeChangeField === 'bio'
                           ? renderBiographyWords(liveProfile?.bio, submittedProposed?.[activeChangeField], true)
-                          : <span className="cr-value-added">{submittedProposed?.[activeChangeField]}</span>
+                          : ['trust_tags', 'awards', 'videos', 'publications', 'quick_facts'].includes(activeChangeField)
+                            ? renderArrayValuePreview(activeChangeField, submittedProposed[activeChangeField], liveProfile[activeChangeField], false)
+                            : <span className="cr-value-added">{String(submittedProposed[activeChangeField])}</span>
                       ) : (
                         <span className="cr-value-empty">None (Cleared)</span>
                       )}
@@ -1250,10 +1566,72 @@ export default function ChangeRequests() {
 
                 {/* Inline Editing Pane */}
                 <div className="cr-edit-pane">
-                  <label htmlFor={`cr-input-${activeChangeField}`} className="cr-edit-label">
+                  <label htmlFor={`cr-input-${activeChangeField}`} className="cr-edit-label" style={{ marginBottom: '8px', display: 'block' }}>
                     Modify Proposed Value (Make adjustments below before applying)
                   </label>
-                  {activeChangeField === 'bio' ? (
+                  {['trust_tags', 'awards', 'videos', 'publications', 'quick_facts'].includes(activeChangeField) ? (
+                    <div className="cr-visual-array-editor">
+                      {getArrayVal(activeChangeField).map((item, idx) => (
+                        <div key={idx} className="cr-array-item-card">
+                          <div className="cr-array-item-header">
+                            <span>Item #{idx + 1}</span>
+                            <button 
+                              className="cr-array-item-remove"
+                              onClick={() => {
+                                const arr = [...getArrayVal(activeChangeField)];
+                                arr.splice(idx, 1);
+                                handleFieldChange(activeChangeField, arr);
+                              }}
+                            >
+                              &times; Remove
+                            </button>
+                          </div>
+                          <div className="cr-array-item-grid">
+                            {Object.keys(item).map(subKey => (
+                              <div key={subKey} className="cr-array-subfield">
+                                <label className="cr-array-subfield-label">{subKey.replace(/_/g, ' ')}</label>
+                                <input
+                                  type="text"
+                                  className="cr-array-subfield-input"
+                                  value={item[subKey] !== undefined ? item[subKey] : ''}
+                                  onChange={e => {
+                                    const arr = [...getArrayVal(activeChangeField)];
+                                    const updatedItem = { ...arr[idx] };
+                                    updatedItem[subKey] = subKey === 'verified_sources' ? Number(e.target.value) || 0 : e.target.value;
+                                    arr[idx] = updatedItem;
+                                    handleFieldChange(activeChangeField, arr);
+                                  }}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      
+                      <button 
+                        className="cr-array-add-btn"
+                        onClick={() => {
+                          const arr = [...getArrayVal(activeChangeField)];
+                          let defaultTemplate = {};
+                          if (activeChangeField === 'quick_facts') {
+                            defaultTemplate = { icon: 'info', label: '', value: '', verified_sources: 1 };
+                          } else if (activeChangeField === 'awards') {
+                            defaultTemplate = { year: new Date().getFullYear().toString(), title: '', issuer: '', tag: 'Verified', description: '' };
+                          } else if (activeChangeField === 'videos') {
+                            defaultTemplate = { title: '', url: '', type: 'Interview', duration: '', views: 0, date: '' };
+                          } else if (activeChangeField === 'publications') {
+                            defaultTemplate = { title: '', type: 'Journal', journal: '', date: '', url: '', image_url: '' };
+                          } else if (activeChangeField === 'trust_tags') {
+                            defaultTemplate = { name: '', type: 'outline-blue' };
+                          }
+                          arr.push(defaultTemplate);
+                          handleFieldChange(activeChangeField, arr);
+                        }}
+                      >
+                        + Add New {getFieldLabel(activeChangeField).slice(0, -1) || 'Item'}
+                      </button>
+                    </div>
+                  ) : activeChangeField === 'bio' ? (
                     <textarea
                       id={`cr-input-${activeChangeField}`}
                       className="cr-edit-textarea"
@@ -1272,27 +1650,61 @@ export default function ChangeRequests() {
                   )}
                 </div>
               </div>
-              <div className="cr-modal-footer">
-                <button className="cr-btn cr-btn-modal-cancel" onClick={() => setActiveChangeField(null)}>Close</button>
-                <button className="cr-btn cr-btn-modal-save" onClick={() => {
-                  const isArrayField = Array.isArray(liveProfile?.[activeChangeField]) || Array.isArray(submittedProposed?.[activeChangeField]);
-                  if (isArrayField) {
-                    try {
-                      const rawVal = editForm[activeChangeField];
-                      if (typeof rawVal === 'string') {
-                        const parsed = JSON.parse(rawVal);
-                        setEditForm(prev => ({ ...prev, [activeChangeField]: parsed }));
+              <div className="cr-modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                {/* Left Side: Discard/Approve quick actions */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button 
+                    className="cr-btn" 
+                    style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#475569', padding: '10px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                    onClick={() => {
+                      const liveVal = liveProfile?.[activeChangeField] !== undefined ? liveProfile[activeChangeField] : '';
+                      setEditForm(prev => ({ ...prev, [activeChangeField]: liveVal }));
+                      setAnsweredFields(prev => ({ ...prev, [activeChangeField]: 'reverted' }));
+                      toast(`Reverted ${getFieldLabel(activeChangeField)} to live site value!`, 'info');
+                      setActiveChangeField(null);
+                    }}
+                  >
+                    Revert to Live
+                  </button>
+                  <button 
+                    className="cr-btn" 
+                    style={{ background: '#e6fbf1', border: '1px solid #a7f3d0', color: '#047857', padding: '10px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                    onClick={() => {
+                      const proposedVal = submittedProposed?.[activeChangeField] !== undefined ? submittedProposed[activeChangeField] : '';
+                      setEditForm(prev => ({ ...prev, [activeChangeField]: proposedVal }));
+                      setAnsweredFields(prev => ({ ...prev, [activeChangeField]: 'accepted' }));
+                      toast(`Approved proposed ${getFieldLabel(activeChangeField)} as submitted!`, 'success');
+                      setActiveChangeField(null);
+                    }}
+                  >
+                    Accept Proposed
+                  </button>
+                </div>
+                
+                {/* Right Side: Apply custom edits & Close */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="cr-btn cr-btn-modal-cancel" onClick={() => setActiveChangeField(null)}>Close</button>
+                  <button className="cr-btn cr-btn-modal-save" onClick={() => {
+                    const isArrayField = Array.isArray(liveProfile?.[activeChangeField]) || Array.isArray(submittedProposed?.[activeChangeField]);
+                    if (isArrayField) {
+                      try {
+                        const rawVal = editForm[activeChangeField];
+                        if (typeof rawVal === 'string') {
+                          const parsed = JSON.parse(rawVal);
+                          setEditForm(prev => ({ ...prev, [activeChangeField]: parsed }));
+                        }
+                      } catch {
+                        toast('Invalid JSON format. Please ensure brackets and syntax are valid.', 'error');
+                        return;
                       }
-                    } catch {
-                      toast('Invalid JSON format. Please ensure brackets and syntax are valid.', 'error');
-                      return;
                     }
-                  }
-                  toast(`Modified proposed ${getFieldLabel(activeChangeField)} locally!`, 'success');
-                  setActiveChangeField(null);
-                }}>
-                  Apply &amp; Save Edit
-                </button>
+                    setAnsweredFields(prev => ({ ...prev, [activeChangeField]: 'custom' }));
+                    toast(`Applied manual correction for ${getFieldLabel(activeChangeField)}!`, 'success');
+                    setActiveChangeField(null);
+                  }}>
+                    Apply Custom Override
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1329,17 +1741,27 @@ export default function ChangeRequests() {
         </div>
 
         <div className="cr-chips">
-          {STATUS_CHIPS.map(chip => (
-            <button
-              key={chip}
-              data-chip={chip}
-              className={`cr-chip${activeChip === chip ? ' active' : ''}`}
-              onClick={() => handleChipChange(chip)}
-            >
-              {chip}
-              <span className="cr-chip-count">{counts[chip]}</span>
-            </button>
-          ))}
+          {STATUS_CHIPS.map(chip => {
+            const chipClassMap = {
+              'Pending': 'pending',
+              'Changes Requested': 'change-requested',
+              'Rejected': 'rejected',
+              'Approved': 'approved',
+              'All': 'all',
+            };
+            const chipClass = chipClassMap[chip] || 'all';
+            return (
+              <button
+                key={chip}
+                data-chip={chip}
+                className={`cr-chip cr-chip--${chipClass}${activeChip === chip ? ' active' : ''}`}
+                onClick={() => handleChipChange(chip)}
+              >
+                {chip}
+                <span className="cr-chip-count">{counts[chip]}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
