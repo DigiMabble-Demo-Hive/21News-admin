@@ -9,6 +9,8 @@ import FeaturedContent from './pages/FeaturedContent';
 import ContactSubmissions from './pages/ContactSubmissions';
 import OrganizationProfile from './pages/OrganizationProfile';
 import ChangeRequests from './pages/ChangeRequests';
+import BlogList from './pages/BlogList';
+import BlogEditor from './pages/BlogEditor';
 
 function App() {
   return (
@@ -22,6 +24,9 @@ function App() {
             <Route path="/change-requests" element={<ChangeRequests />} />
             <Route path="/featured" element={<FeaturedContent />} />
             <Route path="/contact" element={<ContactSubmissions />} />
+            <Route path="/blog" element={<BlogList />} />
+            <Route path="/blog/new" element={<BlogEditor />} />
+            <Route path="/blog/:id" element={<BlogEditor />} />
             <Route path="/entity/:id" element={<EntityProfile />} />
             <Route path="/organization/:id" element={<OrganizationProfile />} />
           </Route>

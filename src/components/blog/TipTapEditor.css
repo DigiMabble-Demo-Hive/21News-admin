@@ -1,0 +1,211 @@
+.tte-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.tte-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 8px 10px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.tte-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tte-divider {
+  width: 1px;
+  height: 20px;
+  background: #e2e8f0;
+  margin: 0 4px;
+}
+
+.tte-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  font-family: inherit;
+}
+
+.tte-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.tte-btn--active {
+  background: #1e3a5f;
+  color: #fff;
+}
+
+.tte-btn--active:hover {
+  background: #2563eb;
+  color: #fff;
+}
+
+/* Editor content area */
+.tte-content {
+  min-height: 320px;
+}
+
+.tte-content .ProseMirror {
+  min-height: 320px;
+  padding: 16px 20px;
+  outline: none;
+  font-size: 15px;
+  line-height: 1.75;
+  color: #1e293b;
+  font-family: Inter, sans-serif;
+}
+
+.tte-content .ProseMirror > * + * {
+  margin-top: 0.75em;
+}
+
+.tte-content .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+  pointer-events: none;
+  height: 0;
+  float: left;
+}
+
+.tte-content .ProseMirror h2 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-top: 1.5em;
+  margin-bottom: 0.4em;
+  line-height: 1.3;
+}
+
+.tte-content .ProseMirror h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 1.2em;
+  margin-bottom: 0.3em;
+  line-height: 1.3;
+}
+
+.tte-content .ProseMirror ul,
+.tte-content .ProseMirror ol {
+  padding-left: 1.5em;
+}
+
+.tte-content .ProseMirror li + li {
+  margin-top: 0.25em;
+}
+
+.tte-content .ProseMirror blockquote {
+  border-left: 4px solid #2563eb;
+  padding-left: 1em;
+  color: #475569;
+  margin: 1em 0;
+  font-style: italic;
+}
+
+.tte-content .ProseMirror code {
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 13px;
+  font-family: 'Courier New', monospace;
+  color: #0f172a;
+}
+
+.tte-content .ProseMirror pre {
+  background: #0f172a;
+  border-radius: 10px;
+  padding: 14px 18px;
+  color: #e2e8f0;
+  overflow-x: auto;
+}
+
+.tte-content .ProseMirror pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+}
+
+.tte-content .ProseMirror a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.tte-content .ProseMirror img {
+  max-width: 100%;
+  border-radius: 10px;
+  height: auto;
+  display: block;
+}
+
+/* Table styles */
+.tte-content .ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tte-content .ProseMirror th {
+  background: #f1f5f9;
+  font-weight: 700;
+  font-size: 13px;
+  color: #0f172a;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.tte-content .ProseMirror td {
+  padding: 9px 14px;
+  border: 1px solid #e2e8f0;
+  font-size: 14px;
+}
+
+.tte-content .ProseMirror .selectedCell:after {
+  background: rgba(37, 99, 235, 0.08);
+  content: '';
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+.tte-content .ProseMirror .column-resize-handle {
+  background-color: #2563eb;
+  bottom: -2px;
+  position: absolute;
+  right: -2px;
+  top: 0;
+  width: 4px;
+  cursor: col-resize;
+}
+
+.tte-content .ProseMirror hr {
+  border: none;
+  border-top: 2px solid #e2e8f0;
+  margin: 2em 0;
+}
