@@ -17,14 +17,11 @@ const BlogImageUpload = ({ isOpen, onClose, currentUrl, onSave }) => {
   const [offset, setOffset]           = useState({ x: 0, y: 0 });
   const [dragging, setDragging]       = useState(false);
 
-  const canvasRef  = useRef(null);
-  const previewRef = useRef(null);
-  const imgRef     = useRef(null);
-  const dragRef    = useRef(null);
+  const canvasRef = useRef(null);
+  const imgRef    = useRef(null);
+  const dragRef   = useRef(null);
 
-  const PREV_W = 320;
-  const PREV_H = Math.round(PREV_W * (CROP_H / CROP_W)); // 168
-
+  /* Reset state when modal closes */
   useEffect(() => {
     if (!isOpen) {
       setImageSrc(null);
@@ -35,8 +32,10 @@ const BlogImageUpload = ({ isOpen, onClose, currentUrl, onSave }) => {
     if (currentUrl) setImageSrc(currentUrl);
   }, [isOpen, currentUrl]);
 
+  /* Minimum scale so the image always covers the full crop area */
   const calcMinScale = (img) => Math.max(CROP_W / img.width, CROP_H / img.height);
 
+  /* Clamp offset so image never reveals empty space (values in canvas pixels) */
   const clampOffset = useCallback((ox, oy, sc) => {
     if (!imgRef.current) return { x: ox, y: oy };
     const hw = (imgRef.current.width  * sc - CROP_W) / 2;
@@ -44,21 +43,19 @@ const BlogImageUpload = ({ isOpen, onClose, currentUrl, onSave }) => {
     return { x: clamp(ox, -hw, hw), y: clamp(oy, -hh, hh) };
   }, []);
 
+  /* Draw to the output canvas (1200×630 — this IS the saved image) */
   const draw = useCallback((sc, ox, oy) => {
     const img = imgRef.current;
-    if (!img) return;
-    const drawTo = (canvas, w, h) => {
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, w, h);
-      const ratio = w / CROP_W;
-      const sw = img.width  * sc * ratio;
-      const sh = img.height * sc * ratio;
-      ctx.drawImage(img, (w - sw) / 2 + ox * ratio, (h - sh) / 2 + oy * ratio, sw, sh);
-    };
-    if (canvasRef.current)  drawTo(canvasRef.current,  CROP_W,  CROP_H);
-    if (previewRef.current) drawTo(previewRef.current, PREV_W,  PREV_H);
-  }, [PREV_W, PREV_H]);
+    const canvas = canvasRef.current;
+    if (!img || !canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, CROP_W, CROP_H);
+    const sw = img.width  * sc;
+    const sh = img.height * sc;
+    ctx.drawImage(img, (CROP_W - sw) / 2 + ox, (CROP_H - sh) / 2 + oy, sw, sh);
+  }, []);
 
+  /* Load image on src change */
   useEffect(() => {
     if (!imageSrc) return;
     setCanvasReady(false);
@@ -76,17 +73,34 @@ const BlogImageUpload = ({ isOpen, onClose, currentUrl, onSave }) => {
     img.src = imageSrc;
   }, [imageSrc, clampOffset]);
 
-  useEffect(() => { if (canvasReady) draw(scale, offset.x, offset.y); }, [scale, offset, draw, canvasReady]);
+  /* Redraw whenever scale or offset changes */
+  useEffect(() => {
+    if (canvasReady) draw(scale, offset.x, offset.y);
+  }, [scale, offset, draw, canvasReady]);
+
+  /* Convert CSS-pixel mouse delta → canvas-pixel delta so drag 1:1 matches display */
+  const cssToCavnas = useCallback(() => {
+    if (!canvasRef.current) return 1;
+    const rect = canvasRef.current.getBoundingClientRect();
+    return CROP_W / rect.width; // e.g. 1200/700 = 1.71
+  }, []);
 
   const onMouseDown = (e) => {
     e.preventDefault();
     setDragging(true);
     dragRef.current = { startX: e.clientX, startY: e.clientY, ox: offset.x, oy: offset.y };
   };
+
   const onMouseMove = useCallback((e) => {
     if (!dragging || !dragRef.current) return;
-    setOffset(clampOffset(dragRef.current.ox + e.clientX - dragRef.current.startX, dragRef.current.oy + e.clientY - dragRef.current.startY, scale));
-  }, [dragging, scale, clampOffset]);
+    const r = cssToCavnas();
+    setOffset(clampOffset(
+      dragRef.current.ox + (e.clientX - dragRef.current.startX) * r,
+      dragRef.current.oy + (e.clientY - dragRef.current.startY) * r,
+      scale,
+    ));
+  }, [dragging, scale, clampOffset, cssToCavnas]);
+
   const onMouseUp = () => setDragging(false);
 
   const onTouchStart = (e) => {
@@ -94,12 +108,19 @@ const BlogImageUpload = ({ isOpen, onClose, currentUrl, onSave }) => {
     setDragging(true);
     dragRef.current = { startX: t.clientX, startY: t.clientY, ox: offset.x, oy: offset.y };
   };
+
   const onTouchMove = useCallback((e) => {
     if (!dragging || !dragRef.current) return;
     e.preventDefault();
     const t = e.touches[0];
-    setOffset(clampOffset(dragRef.current.ox + t.clientX - dragRef.current.startX, dragRef.current.oy + t.clientY - dragRef.current.startY, scale));
-  }, [dragging, scale, clampOffset]);
+    const r = cssToCavnas();
+    setOffset(clampOffset(
+      dragRef.current.ox + (t.clientX - dragRef.current.startX) * r,
+      dragRef.current.oy + (t.clientY - dragRef.current.startY) * r,
+      scale,
+    ));
+  }, [dragging, scale, clampOffset, cssToCavnas]);
+
   const onTouchEnd = () => setDragging(false);
 
   const handleFile = (e) => {
@@ -118,7 +139,7 @@ const BlogImageUpload = ({ isOpen, onClose, currentUrl, onSave }) => {
     if (!canvasRef.current || !canvasReady) return;
     setUploading(true);
     setError('');
-    draw(scale, offset.x, offset.y);
+    draw(scale, offset.x, offset.y); // ensure canvas is up to date
 
     canvasRef.current.toBlob(async (blob) => {
       try {
@@ -143,10 +164,16 @@ const BlogImageUpload = ({ isOpen, onClose, currentUrl, onSave }) => {
   return (
     <div className="biu-overlay" onClick={onClose}>
       <div className="biu-modal" onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
         <div className="biu-header">
-          <div className="biu-header-text">
-            <h3>Featured Image</h3>
-            <p>{imageSrc ? 'Drag to reposition · Scroll slider to zoom · 40 : 21 crop (1200×630)' : 'Upload a featured image (1200×630 recommended for blog SEO)'}</p>
+          <div>
+            <h3 className="biu-title">Featured Image</h3>
+            <p className="biu-subtitle">
+              {imageSrc
+                ? 'Drag to reposition · Use slider to zoom · Crop area is 1200 × 630 px'
+                : 'Upload a featured image — will be cropped to 1200 × 630 (banner ratio)'}
+            </p>
           </div>
           <button className="biu-close" onClick={onClose} aria-label="Close">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -160,14 +187,15 @@ const BlogImageUpload = ({ isOpen, onClose, currentUrl, onSave }) => {
         <div className="biu-body">
           {imageSrc ? (
             <>
-              <div className="biu-canvas-wrap">
-                {!canvasReady && <div className="biu-canvas-loading">Loading image…</div>}
+              {/* Crop canvas — what you see is exactly what gets saved */}
+              <div className="biu-crop-wrap">
+                {!canvasReady && <div className="biu-loading">Loading image…</div>}
                 <canvas
                   ref={canvasRef}
                   width={CROP_W}
                   height={CROP_H}
                   className="biu-canvas"
-                  style={{ cursor: dragging ? 'grabbing' : 'grab', display: canvasReady ? 'block' : 'none' }}
+                  style={{ cursor: dragging ? 'grabbing' : 'grab', opacity: canvasReady ? 1 : 0 }}
                   onMouseDown={onMouseDown}
                   onMouseMove={onMouseMove}
                   onMouseUp={onMouseUp}
@@ -176,17 +204,20 @@ const BlogImageUpload = ({ isOpen, onClose, currentUrl, onSave }) => {
                   onTouchMove={onTouchMove}
                   onTouchEnd={onTouchEnd}
                 />
-                <div className="biu-canvas-rule">1200 × 630 px</div>
+                <div className="biu-crop-badge">1200 × 630 — exactly what will be saved</div>
               </div>
 
+              {/* Zoom */}
               <div className="biu-zoom-row">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                  <line x1="8" y1="11" x2="14" y2="11"/>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/>
                 </svg>
                 <input
-                  type="range" className="biu-zoom-slider"
-                  min={minScale} max={minScale * 3} step={0.005}
+                  type="range"
+                  className="biu-zoom-slider"
+                  min={minScale}
+                  max={minScale * 3}
+                  step={0.005}
                   value={scale}
                   onChange={(e) => {
                     const ns = Number(e.target.value);
@@ -194,61 +225,59 @@ const BlogImageUpload = ({ isOpen, onClose, currentUrl, onSave }) => {
                     setOffset(clampOffset(offset.x, offset.y, ns));
                   }}
                 />
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
                   <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
                 </svg>
+                <button
+                  className="biu-reset-btn"
+                  type="button"
+                  onClick={() => { setScale(minScale); setOffset(clampOffset(0, 0, minScale)); }}
+                >
+                  Reset
+                </button>
               </div>
 
-              <div className="biu-preview-strip">
-                <span className="biu-preview-label">Preview</span>
-                <canvas ref={previewRef} width={PREV_W} height={PREV_H} className="biu-preview-canvas" />
-              </div>
-
+              {/* Change image */}
               <label className="biu-change-btn">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                   <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
                 </svg>
-                Upload Different Image
+                Change image
                 <input type="file" accept="image/*" onChange={handleFile} hidden />
               </label>
             </>
           ) : (
+            /* Upload dropzone */
             <label className="biu-dropzone">
-              <div className="biu-dropzone-icon">
-                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/>
-                  <circle cx="8.5" cy="8.5" r="1.5"/>
-                  <polyline points="21 15 16 10 5 21"/>
-                </svg>
-              </div>
-              <span className="biu-dropzone-title">Click to upload featured image</span>
-              <span className="biu-dropzone-hint">JPG · PNG · WebP · Max 8 MB · 1200×630 recommended</span>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <polyline points="21 15 16 10 5 21"/>
+              </svg>
+              <span className="biu-dropzone-title">Click or drag to upload</span>
+              <span className="biu-dropzone-hint">Will be cropped to 1200 × 630 · JPG · PNG · WebP · Max 8 MB</span>
               <input type="file" accept="image/*" onChange={handleFile} hidden />
             </label>
           )}
         </div>
 
+        {/* Footer */}
         <div className="biu-footer">
           <button className="biu-btn biu-btn--cancel" onClick={onClose} disabled={uploading}>
             Cancel
           </button>
           {imageSrc && (
             <button className="biu-btn biu-btn--save" onClick={handleSave} disabled={uploading || !canvasReady}>
-              {uploading ? (
-                <><div className="biu-spinner" />Uploading…</>
-              ) : (
-                <>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                  Save Image
-                </>
-              )}
+              {uploading
+                ? <><div className="biu-spinner" />Uploading…</>
+                : <><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Apply Crop</>
+              }
             </button>
           )}
         </div>
+
       </div>
     </div>
   );
