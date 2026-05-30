@@ -641,14 +641,33 @@ const BlogEditor = () => {
               </div>
             )}
 
+            <div className="be-field" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', marginTop: '16px', marginBottom: '16px' }}>
+              <input
+                type="checkbox"
+                id="be-featured-toggle"
+                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                checked={post.canonical_url === 'featured'}
+                onChange={(e) => set('canonical_url', e.target.checked ? 'featured' : '')}
+              />
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <label htmlFor="be-featured-toggle" style={{ fontSize: '14px', fontWeight: '600', color: '#0F172A', cursor: 'pointer', margin: 0 }}>
+                  Promote to Featured Post
+                </label>
+                <span style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.4' }}>
+                  Display this article at the very top of the public blog page with a prominent horizontal layout
+                </span>
+              </div>
+            </div>
+
             <div className="be-field">
               <label className="be-label">Canonical URL <span className="be-label-hint">(leave blank to use default)</span></label>
               <input
                 className="be-input"
                 type="url"
                 placeholder="https://21news.in/blog/post-slug"
-                value={post.canonical_url}
+                value={post.canonical_url === 'featured' ? '' : post.canonical_url}
                 onChange={(e) => set('canonical_url', e.target.value)}
+                disabled={post.canonical_url === 'featured'}
               />
             </div>
 
