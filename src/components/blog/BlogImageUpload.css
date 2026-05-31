@@ -4,11 +4,12 @@
   inset: 0;
   z-index: 9999;
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* Align to start for natural scrolling */
   justify-content: center;
   background: rgba(0, 0, 0, 0.72);
   backdrop-filter: blur(8px);
-  padding: 20px;
+  padding: 24px 20px;
+  overflow-y: auto; /* Enable scroll if viewport is extremely short */
   animation: biuFade 0.18s ease;
 }
 
@@ -22,6 +23,7 @@
   border-radius: 20px;
   box-shadow: 0 32px 100px rgba(0, 0, 0, 0.4);
   animation: biuSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  margin: auto; /* Flex centers vertically when space permits */
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -305,4 +307,30 @@
   .biu-modal { border-radius: 16px 16px 0 0; margin-top: auto; }
   .biu-body { padding: 16px 16px 12px; }
   .biu-header, .biu-footer { padding-left: 16px; padding-right: 16px; }
+}
+
+/* ── Height-Based Responsiveness for Low-Vertical Viewports ──────────────── */
+@media (max-height: 760px) {
+  .biu-modal {
+    max-width: 680px; /* Reduces width, which organically drops aspect-ratio canvas height to 357px */
+  }
+}
+
+@media (max-height: 640px) {
+  .biu-modal {
+    max-width: 540px; /* Reduces width, which organically drops aspect-ratio canvas height to 283px */
+  }
+  .biu-header, .biu-footer {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  .biu-body {
+    padding: 12px 16px;
+  }
+  .biu-title {
+    font-size: 15px;
+  }
+  .biu-subtitle {
+    font-size: 12px;
+  }
 }

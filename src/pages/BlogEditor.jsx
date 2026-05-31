@@ -316,7 +316,7 @@ const BlogEditor = () => {
             </div>
             <div className="be-field">
               <label className="be-label">Content</label>
-              <TipTapEditor content={post.content} onChange={(html) => set('content', html)} />
+              <TipTapEditor key={post.id || 'new'} content={post.content} onChange={(html) => set('content', html)} />
             </div>
             <div className="be-field">
               <label className="be-label">Excerpt <span className="be-label-hint">(shown on blog listing)</span></label>
@@ -518,7 +518,7 @@ const BlogEditor = () => {
               <div className="be-ai-section-header">
                 <div>
                   <h4 className="be-ai-section-title">FAQ Generator</h4>
-                  <p className="be-ai-section-desc">Generates 5 Q&A pairs from your content — appended as FAQPage JSON-LD.</p>
+                  <p className="be-ai-section-desc">Generates 5 Q&A pairs from your content — saved directly as structured data schema.</p>
                 </div>
                 <button
                   className="be-ai-btn"
@@ -528,16 +528,81 @@ const BlogEditor = () => {
                   {aiFaqLoading ? <><div className="be-mini-spinner" />Generating…</> : 'Generate FAQ'}
                 </button>
               </div>
-              {post.faq_pairs?.length > 0 && (
-                <div className="be-faq-list">
-                  {post.faq_pairs.map((faq, i) => (
-                    <div key={i} className="be-faq-item">
-                      <div className="be-faq-q">{faq.question}</div>
-                      <div className="be-faq-a">{faq.answer}</div>
+              
+              <div className="be-faq-list">
+                {post.faq_pairs?.map((faq, i) => (
+                  <div key={i} className="be-faq-edit-card">
+                    <div className="be-faq-card-header">
+                      <span className="be-faq-number">FAQ #{i + 1}</span>
+                      <button
+                        type="button"
+                        className="be-faq-delete-btn"
+                        onClick={() => {
+                          const updated = post.faq_pairs.filter((_, idx) => idx !== i);
+                          set('faq_pairs', updated);
+                          showToast('FAQ pair removed.');
+                        }}
+                        title="Remove FAQ pair"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                      </button>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="be-field" style={{ gap: '4px' }}>
+                      <label className="be-label" style={{ fontSize: '11px', color: '#64748B', fontWeight: 'bold', textTransform: 'uppercase' }}>Question</label>
+                      <input
+                        type="text"
+                        className="be-input"
+                        style={{ fontSize: '13px', padding: '8px 12px' }}
+                        value={faq.question || ''}
+                        onChange={(e) => {
+                          const updated = [...post.faq_pairs];
+                          updated[i] = { ...updated[i], question: e.target.value };
+                          set('faq_pairs', updated);
+                        }}
+                        placeholder="e.g., What is Agentic AI?"
+                      />
+                    </div>
+                    <div className="be-field" style={{ gap: '4px' }}>
+                      <label className="be-label" style={{ fontSize: '11px', color: '#64748B', fontWeight: 'bold', textTransform: 'uppercase' }}>Answer</label>
+                      <textarea
+                        className="be-textarea"
+                        rows={2}
+                        style={{ fontSize: '13px', padding: '8px 12px' }}
+                        value={faq.answer || ''}
+                        onChange={(e) => {
+                          const updated = [...post.faq_pairs];
+                          updated[i] = { ...updated[i], answer: e.target.value };
+                          set('faq_pairs', updated);
+                        }}
+                        placeholder="e.g., Agentic AI refers to autonomous systems..."
+                      />
+                    </div>
+                  </div>
+                ))}
+                
+                <button
+                  type="button"
+                  className="be-ai-btn"
+                  style={{ 
+                    marginTop: '8px', 
+                    alignSelf: 'flex-start', 
+                    background: '#F1F5F9', 
+                    color: '#475569', 
+                    border: '1.5px solid #E2E8F0', 
+                    boxShadow: 'none',
+                    fontWeight: '700'
+                  }}
+                  onClick={() => {
+                    const updated = [...(post.faq_pairs || []), { question: '', answer: '' }];
+                    set('faq_pairs', updated);
+                  }}
+                >
+                  + Add FAQ Pair
+                </button>
+              </div>
             </div>
 
             {/* Summarize */}
@@ -555,9 +620,18 @@ const BlogEditor = () => {
                   {aiSummaryLoading ? <><div className="be-mini-spinner" />Summarizing…</> : 'Summarize'}
                 </button>
               </div>
-              {summaryResult && (
-                <div className="be-summary-result">
-                  <p>{summaryResult}</p>
+              {summaryResult !== '' && (
+                <div className="be-summary-result" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div className="be-field" style={{ gap: '6px' }}>
+                    <label className="be-label" style={{ fontSize: '12px', color: '#166534', fontWeight: '700' }}>Edit / Preview Summary Excerpt</label>
+                    <textarea
+                      className="be-textarea"
+                      rows={3}
+                      style={{ fontSize: '13px', padding: '10px 12px', borderColor: '#BBF7D0', color: '#14532D', background: '#FFFFFF' }}
+                      value={summaryResult}
+                      onChange={(e) => setSummaryResult(e.target.value)}
+                    />
+                  </div>
                   <button
                     className="be-use-excerpt-btn"
                     onClick={() => { set('excerpt', summaryResult); setSummaryResult(''); showToast('Excerpt updated.'); }}
@@ -641,33 +715,14 @@ const BlogEditor = () => {
               </div>
             )}
 
-            <div className="be-field" style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', marginTop: '16px', marginBottom: '16px' }}>
-              <input
-                type="checkbox"
-                id="be-featured-toggle"
-                style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                checked={post.canonical_url === 'featured'}
-                onChange={(e) => set('canonical_url', e.target.checked ? 'featured' : '')}
-              />
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <label htmlFor="be-featured-toggle" style={{ fontSize: '14px', fontWeight: '600', color: '#0F172A', cursor: 'pointer', margin: 0 }}>
-                  Promote to Featured Post
-                </label>
-                <span style={{ fontSize: '12px', color: '#64748B', lineHeight: '1.4' }}>
-                  Display this article at the very top of the public blog page with a prominent horizontal layout
-                </span>
-              </div>
-            </div>
-
             <div className="be-field">
               <label className="be-label">Canonical URL <span className="be-label-hint">(leave blank to use default)</span></label>
               <input
                 className="be-input"
                 type="url"
                 placeholder="https://21news.in/blog/post-slug"
-                value={post.canonical_url === 'featured' ? '' : post.canonical_url}
+                value={post.canonical_url || ''}
                 onChange={(e) => set('canonical_url', e.target.value)}
-                disabled={post.canonical_url === 'featured'}
               />
             </div>
 

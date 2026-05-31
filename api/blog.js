@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     if (action === 'list') {
       const { data: rows, error } = await db
         .from('blog_posts')
-        .select('id, title, slug, status, published_at, created_at, featured_image_url, meta_description, excerpt')
+        .select('id, title, slug, status, published_at, created_at, featured_image_url, meta_description, excerpt, canonical_url')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return res.status(200).json({ data: rows });
@@ -56,6 +56,17 @@ export default async function handler(req, res) {
       if (updates.status === 'published' && !updates.published_at) {
         updates.published_at = new Date().toISOString();
       }
+      
+      // If setting this post to featured, atomically unfeature other posts in the DB first
+      if (updates.canonical_url === 'featured') {
+        const { error: unfeatureError } = await db
+          .from('blog_posts')
+          .update({ canonical_url: '' })
+          .neq('id', id)
+          .eq('canonical_url', 'featured');
+        if (unfeatureError) console.error('Error unfeaturing other posts:', unfeatureError);
+      }
+
       const { data: row, error } = await db
         .from('blog_posts')
         .update(updates)

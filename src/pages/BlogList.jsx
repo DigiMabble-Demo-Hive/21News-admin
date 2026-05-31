@@ -81,40 +81,42 @@ const BlogList = () => {
     const wasFeatured = post.canonical_url === 'featured';
     const newCanonicalUrl = wasFeatured ? '' : 'featured';
     
-    try {
-      // 1. If we are setting this post as featured, we should unfeature any other post first
-      if (!wasFeatured) {
-        const currentlyFeatured = posts.find(p => p.canonical_url === 'featured');
-        if (currentlyFeatured) {
-          await updateBlogPost(currentlyFeatured.id, {
-            ...currentlyFeatured,
-            canonical_url: ''
-          });
+    // 1. Optimistic UI update: instantly update local state so UI responds in 0ms!
+    setPosts((prev) =>
+      prev.map((p) => {
+        if (p.id === post.id) {
+          return { ...p, canonical_url: newCanonicalUrl };
         }
-      }
+        if (!wasFeatured && p.canonical_url === 'featured') {
+          return { ...p, canonical_url: '' };
+        }
+        return p;
+      })
+    );
 
-      // 2. Update the clicked post
-      const updated = await updateBlogPost(post.id, {
+    try {
+      // 2. Only update the single clicked post (backend unfeatures other posts atomically)
+      await updateBlogPost(post.id, {
         ...post,
         canonical_url: newCanonicalUrl
       });
-
-      // 3. Update the local state
-      setPosts((prev) =>
-        prev.map((p) => {
-          if (p.id === post.id) {
-            return { ...p, canonical_url: newCanonicalUrl };
-          }
-          if (!wasFeatured && p.canonical_url === 'featured') {
-            return { ...p, canonical_url: '' };
-          }
-          return p;
-        })
-      );
-
       toast(wasFeatured ? 'Post removed from featured.' : 'Post set as featured!');
     } catch (err) {
       toast(err.message, 'error');
+      // 3. Rollback on failure: refetch fresh list from server to ensure database integrity
+      try {
+        const data = await listBlogPosts();
+        setPosts(data);
+      } catch (refetchErr) {
+        setPosts((prev) =>
+          prev.map((p) => {
+            if (p.id === post.id) {
+              return { ...p, canonical_url: wasFeatured ? 'featured' : '' };
+            }
+            return p;
+          })
+        );
+      }
     }
   };
 

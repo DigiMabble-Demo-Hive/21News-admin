@@ -189,7 +189,8 @@
   background: var(--bg-white, #fff);
   border: 1px solid var(--border-light, #E2E8F0);
   border-radius: 14px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.06);
 }
 
@@ -549,17 +550,185 @@
 .bll-confirm-delete:hover:not(:disabled) { background: #B91C1C; }
 .bll-confirm-delete:disabled { opacity: 0.55; cursor: not-allowed; }
 
-/* ── Responsive ────────────────────────────────────────────────────────────── */
+/* ── Responsive & Ultra-Premium Mobile Card Layout ─────────────────────────── */
 @media (max-width: 1024px) {
-  .bll-table thead th:nth-child(2),
-  .bll-table tbody td:nth-child(2) { display: none; } /* hide slug */
-}
+  /* Layout Spacing */
+  .bll-header {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 24px 20px;
+    gap: 16px;
+    text-align: center;
+  }
+  .bll-title {
+    font-size: 24px;
+  }
+  .bll-new-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px;
+  }
 
-@media (max-width: 768px) {
-  .bll-header   { padding: 20px 16px; flex-wrap: wrap; }
-  .bll-controls { padding: 14px 16px; }
-  .bll-body     { padding: 16px 16px 40px; }
-  .bll-search-wrap { width: 100%; }
-  .bll-table thead th:nth-child(4),
-  .bll-table tbody td:nth-child(4) { display: none; } /* hide date */
+  .bll-controls {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px 20px;
+    gap: 14px;
+  }
+  .bll-search-wrap {
+    width: 100%;
+  }
+  .bll-controls-divider {
+    display: none;
+  }
+  .bll-filter-chips {
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding: 2px 0 8px;
+    scrollbar-width: none; /* Firefox */
+  }
+  .bll-filter-chips::-webkit-scrollbar {
+    display: none; /* Safari / Chrome */
+  }
+
+  .bll-body {
+    padding: 16px 12px 48px;
+  }
+
+  /* Transform brittle HTML Table into Premium Native Cards */
+  .bll-table-wrap {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .bll-table-toolbar {
+    padding: 8px 4px 14px;
+    background: transparent;
+    border-bottom: none;
+  }
+  .bll-table-footer {
+    padding: 16px 4px;
+    background: transparent;
+    border-top: none;
+  }
+
+  .bll-table {
+    display: block;
+  }
+  .bll-table thead {
+    display: none; /* Hide tabular headings */
+  }
+  .bll-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+  }
+
+  /* Card Container */
+  .bll-row {
+    display: flex !important;
+    flex-direction: column !important;
+    background: #ffffff;
+    border: 1px solid #E2E8F0 !important;
+    border-radius: 16px;
+    padding: 16px;
+    gap: 12px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.03);
+    position: relative;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .bll-row:hover {
+    background: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+  }
+
+  /* Title & Image block */
+  .bll-td-title {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 12px;
+    padding: 0 !important;
+    width: calc(100% - 24px) !important; /* Leave room for floating star */
+  }
+  .bll-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+  }
+  .bll-post-title {
+    font-size: 15px;
+    white-space: normal; /* Allow wrapping */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .bll-post-excerpt {
+    display: none; /* Hide excerpt to keep cards clean and compact */
+  }
+
+  /* Floating Star (Featured Toggle) in top-right */
+  .bll-row td:nth-child(3) {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    padding: 0 !important;
+    z-index: 10;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Slug Display */
+  .bll-row td:nth-child(2) {
+    display: flex !important;
+    padding: 0 !important;
+    align-items: center;
+  }
+  .bll-slug {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Status Badge */
+  .bll-row td:nth-child(4) {
+    display: inline-flex !important;
+    padding: 0 !important;
+    align-items: center;
+    margin-right: auto;
+  }
+
+  /* Published Date Row */
+  .bll-row td:nth-child(5) {
+    display: flex !important;
+    padding: 0 !important;
+    align-items: center;
+    font-size: 12px;
+    color: #94A3B8;
+  }
+
+  /* Action Buttons Row */
+  .bll-row td:nth-child(6) {
+    display: flex !important;
+    padding: 12px 0 0 !important;
+    border-top: 1px solid #F1F5F9;
+    width: 100%;
+    margin-top: 4px;
+  }
+  .bll-actions-inner {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+  .bll-action-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 10px;
+    border-radius: 8px;
+  }
 }

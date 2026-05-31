@@ -3,7 +3,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table';
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import './TipTapEditor.css';
 
 const ToolbarButton = ({ onClick, active, title, children }) => (
@@ -18,6 +18,10 @@ const ToolbarButton = ({ onClick, active, title, children }) => (
 );
 
 const TipTapEditor = ({ content, onChange }) => {
+  const debounceRef = useRef(null);
+  // Track whether content change originated from this editor to avoid sync loop
+  const internalChangeRef = useRef(false);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -30,15 +34,16 @@ const TipTapEditor = ({ content, onChange }) => {
     ],
     content: content || '',
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      // Debounce: only propagate to parent after 300ms pause in typing
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        internalChangeRef.current = true;
+        onChange(editor.getHTML());
+      }, 300);
     },
   });
 
-  useEffect(() => {
-    if (editor && content !== undefined && editor.getHTML() !== content) {
-      editor.commands.setContent(content || '', false);
-    }
-  }, [content, editor]);
+
 
   const addLink = useCallback(() => {
     if (!editor) return;
