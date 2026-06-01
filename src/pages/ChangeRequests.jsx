@@ -478,20 +478,20 @@ export default function ChangeRequests() {
       statusType === 'approved'         ? { ...finalProposed, approval_status: 'approved' } :
       statusType === 'change_requested' ? { approval_status: 'change_requested' } :
       /* rejected */                      { approval_status: 'approved' }; // keep live profile untouched
-    try {
-      await updateAdminProfile({ userId, updateData: profileUpdateData, table: 'entities_master' });
-    } catch (err) {
-      profileSyncError = err?.message || (err && typeof err === 'object' ? JSON.stringify(err) : String(err));
-      console.error('Profile sync failed error details:', err);
-    }
+    // --- parallel execution of profile and submission updates ---
+    const profilePromise = updateAdminProfile({ userId, updateData: profileUpdateData, table: 'entities_master' })
+      .catch(err => {
+        profileSyncError = err?.message || (err && typeof err === 'object' ? JSON.stringify(err) : String(err));
+        console.error('Profile sync failed error details:', err);
+      });
 
-    // --- contact_submissions status update ---
-    try {
-      await updateSubmissionStatus(selected.id, statusType, messagePayload);
-    } catch (err) {
-      submissionSyncError = err?.message || (err && typeof err === 'object' ? JSON.stringify(err) : String(err));
-      console.error('Submission status sync failed error details:', err);
-    }
+    const submissionPromise = updateSubmissionStatus(selected.id, statusType, messagePayload)
+      .catch(err => {
+        submissionSyncError = err?.message || (err && typeof err === 'object' ? JSON.stringify(err) : String(err));
+        console.error('Submission status sync failed error details:', err);
+      });
+
+    await Promise.all([profilePromise, submissionPromise]);
 
     setActionLoading(false);
 

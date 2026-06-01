@@ -184,14 +184,16 @@
 
 /* ============ MAIN CONTENT ============ */
 .admin-content {
-  flex: 1;
+  width: calc(100% - 260px);
   margin-left: 260px;
   min-height: 100vh;
   background: rgba(224, 242, 254, 0.3);
-  transition: margin-left var(--transition-fast);
+  transition: margin-left var(--transition-fast), width var(--transition-fast);
+  box-sizing: border-box;
 }
 
 .admin-content.expanded {
+  width: calc(100% - 72px);
   margin-left: 72px;
 }
 
@@ -316,6 +318,7 @@
   }
 
   .admin-content {
+    width: calc(100% - 72px);
     margin-left: 72px;
   }
 }

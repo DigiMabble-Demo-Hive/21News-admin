@@ -9,6 +9,10 @@ import FeaturedContent from './pages/FeaturedContent';
 import ContactSubmissions from './pages/ContactSubmissions';
 import OrganizationProfile from './pages/OrganizationProfile';
 import ChangeRequests from './pages/ChangeRequests';
+import BlogList from './pages/BlogList';
+import BlogEditor from './pages/BlogEditor';
+import DocList from './pages/DocList';
+import DocEditor from './pages/DocEditor';
 
 function App() {
   return (
@@ -22,6 +26,12 @@ function App() {
             <Route path="/change-requests" element={<ChangeRequests />} />
             <Route path="/featured" element={<FeaturedContent />} />
             <Route path="/contact" element={<ContactSubmissions />} />
+            <Route path="/blog" element={<BlogList />} />
+            <Route path="/blog/new" element={<BlogEditor />} />
+            <Route path="/blog/:id" element={<BlogEditor />} />
+            <Route path="/docs" element={<DocList />} />
+            <Route path="/docs/new" element={<DocEditor />} />
+            <Route path="/docs/:id" element={<DocEditor />} />
             <Route path="/entity/:id" element={<EntityProfile />} />
             <Route path="/organization/:id" element={<OrganizationProfile />} />
           </Route>
@@ -31,5 +41,6 @@ function App() {
     </AuthProvider>
   );
 }
+
 
 export default App;

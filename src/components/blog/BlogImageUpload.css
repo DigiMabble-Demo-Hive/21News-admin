@@ -1,0 +1,336 @@
+/* ── Overlay ───────────────────────────────────────────────────────────────── */
+.biu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start; /* Align to start for natural scrolling */
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  padding: 24px 20px;
+  overflow-y: auto; /* Enable scroll if viewport is extremely short */
+  animation: biuFade 0.18s ease;
+}
+
+@keyframes biuFade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Modal — wide enough to show the 40:21 banner ratio clearly ────────────── */
+.biu-modal {
+  width: 100%;
+  max-width: 860px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 32px 100px rgba(0, 0, 0, 0.4);
+  animation: biuSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  margin: auto; /* Flex centers vertically when space permits */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 94vh;
+}
+
+@keyframes biuSlide { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+.biu-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.biu-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px;
+}
+
+.biu-subtitle {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.biu-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #64748b;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.biu-close:hover { background: #e2e8f0; color: #0f172a; transform: rotate(90deg); }
+
+/* ── Error ─────────────────────────────────────────────────────────────────── */
+.biu-error {
+  margin: 12px 24px 0;
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ── Body ──────────────────────────────────────────────────────────────────── */
+.biu-body {
+  padding: 20px 24px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ── Crop canvas area ──────────────────────────────────────────────────────── */
+.biu-crop-wrap {
+  position: relative;
+  width: 100%;
+  /* Canvas is 1200×630 = 40:21 ratio — lock it in */
+  aspect-ratio: 40 / 21;
+  background: #0f172a;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.biu-canvas {
+  /* Display fills the container but the BUFFER is 1200×630 — these are identical */
+  width: 100%;
+  height: 100%;
+  display: block;
+  transition: opacity 0.2s;
+}
+
+.biu-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.biu-crop-badge {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  padding: 3px 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 9999px;
+  letter-spacing: 0.3px;
+  pointer-events: none;
+}
+
+/* ── Zoom row ──────────────────────────────────────────────────────────────── */
+.biu-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0 10px;
+}
+
+.biu-zoom-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: #e2e8f0;
+  outline: none;
+  cursor: pointer;
+}
+
+.biu-zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #1e3a5f;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.biu-zoom-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+.biu-zoom-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #1e3a5f;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  cursor: pointer;
+}
+
+.biu-reset-btn {
+  padding: 5px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  background: white;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.biu-reset-btn:hover { border-color: #2563eb; color: #2563eb; }
+
+/* ── Change image ──────────────────────────────────────────────────────────── */
+.biu-change-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9px;
+  background: white;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.biu-change-btn:hover { border-color: #2563eb; color: #2563eb; }
+
+/* ── Upload dropzone ───────────────────────────────────────────────────────── */
+.biu-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  /* Same 40:21 ratio as the crop area — user sees the exact banner size */
+  aspect-ratio: 40 / 21;
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: #94a3b8;
+}
+
+.biu-dropzone:hover { border-color: #2563eb; background: #eff6ff; }
+
+.biu-dropzone-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.biu-dropzone-hint {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────────── */
+.biu-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 24px 18px;
+  border-top: 1px solid #f1f5f9;
+  flex-shrink: 0;
+}
+
+.biu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.biu-btn--cancel {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.biu-btn--cancel:hover:not(:disabled) { background: #e2e8f0; }
+
+.biu-btn--save {
+  background: #1e3a5f;
+  color: white;
+  box-shadow: 0 4px 14px rgba(30, 58, 95, 0.3);
+}
+
+.biu-btn--save:hover:not(:disabled) { background: #2563eb; box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35); }
+.biu-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.biu-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: biuSpin 0.7s linear infinite;
+}
+
+@keyframes biuSpin { to { transform: rotate(360deg); } }
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .biu-modal { max-width: 98vw; }
+}
+
+@media (max-width: 600px) {
+  .biu-overlay { padding: 0; }
+  .biu-modal { border-radius: 16px 16px 0 0; margin-top: auto; }
+  .biu-body { padding: 16px 16px 12px; }
+  .biu-header, .biu-footer { padding-left: 16px; padding-right: 16px; }
+}
+
+/* ── Height-Based Responsiveness for Low-Vertical Viewports ──────────────── */
+@media (max-height: 760px) {
+  .biu-modal {
+    max-width: 680px; /* Reduces width, which organically drops aspect-ratio canvas height to 357px */
+  }
+}
+
+@media (max-height: 640px) {
+  .biu-modal {
+    max-width: 540px; /* Reduces width, which organically drops aspect-ratio canvas height to 283px */
+  }
+  .biu-header, .biu-footer {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  .biu-body {
+    padding: 12px 16px;
+  }
+  .biu-title {
+    font-size: 15px;
+  }
+  .biu-subtitle {
+    font-size: 12px;
+  }
+}
