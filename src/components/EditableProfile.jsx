@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { updateAdminProfile } from '../lib/adminProfileApi';
+import FeaturedImageUpload from './FeaturedImageUpload';
 import './EditableProfile.css';
 
 const EditableProfile = ({ profile, onSave, onCancel }) => {
@@ -7,6 +8,7 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [benefitInput, setBenefitInput] = useState('');
+  const [uploadTarget, setUploadTarget] = useState(null); // 'cta' | 'hq'
   const isDirty = JSON.stringify(form) !== JSON.stringify(profile);
 
   const update = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -28,6 +30,22 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
     const benefits = [...(form.featured_content?.key_benefits || [])];
     benefits.splice(i, 1);
     updateFeatured('key_benefits', benefits);
+  };
+
+  const handleImageSave = async (url) => {
+    try {
+      if (uploadTarget === 'cta') {
+        await updateAdminProfile({ userId: profile.user_id, updateData: { CTA_image_url: url }, table: 'entities_master' });
+        update('CTA_image_url', url);
+      } else if (uploadTarget === 'hq') {
+        await updateAdminProfile({ userId: profile.user_id, updateData: { hq_image_url: url }, table: 'entities_master' });
+        update('hq_image_url', url);
+      }
+    } catch (err) {
+      console.error('Image save error:', err);
+    } finally {
+      setUploadTarget(null);
+    }
   };
 
   const updateAuthority = (key, value, max) => {
@@ -107,6 +125,7 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
         subscribe_url:            form.subscribe_url,
         // Premium featured content
         featured_content:         form.featured_content,
+        CTA_image_url:            form.CTA_image_url,
         // Profile data
         trust_tags:               form.trust_tags,
         awards:                   form.awards,
@@ -264,6 +283,44 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
         </div>
       </div>
 
+      {/* ── Company HQ Image ── */}
+      <div className="ep-section">
+        <h4 className="ep-section-title">Company HQ Image</h4>
+        <p className="ep-section-desc" style={{ marginBottom: 16 }}>
+          Shown in the Company Headquarters card on standard profiles, and inside the Primary Entity card on premium profiles.
+        </p>
+        <div className="ep-img-section">
+          <div className="ep-img-preview ep-img-preview--hq">
+            {form.hq_image_url ? (
+              <img src={form.hq_image_url} alt="Company HQ" className="ep-img-preview-img" />
+            ) : (
+              <div className="ep-img-empty">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.4">
+                  <rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/>
+                  <line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/>
+                  <line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/>
+                  <line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/>
+                  <line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/>
+                </svg>
+                <span>No HQ image set</span>
+              </div>
+            )}
+          </div>
+          <div className="ep-img-actions">
+            <button className="ep-img-upload-btn" onClick={() => setUploadTarget('hq')}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              {form.hq_image_url ? 'Change HQ Image' : 'Upload HQ Image'}
+            </button>
+            {form.hq_image_url && (
+              <button className="ep-img-remove-btn" onClick={() => update('hq_image_url', null)}>Remove</button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* ── Featured Service (Premium Showcase) — only for premium profiles ── */}
       {form.is_premium && (
         <div className="ep-section">
@@ -274,12 +331,57 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
                 <span className="ep-premium-tag">Premium</span>
               </h4>
               <p className="ep-section-desc">
-                Shown in the left grid card for premium profiles. Falls back to placeholder data when empty.
+                Shown in the left grid card for premium profiles. The hero image uses the CTA Image below; falls back to Featured Image URL if unset.
               </p>
             </div>
           </div>
 
+          {/* CTA Hero Image */}
+          <div className="ep-img-section ep-img-section--dark" style={{ marginBottom: 20 }}>
+            <div className="ep-img-preview ep-img-preview--cta">
+              {form.CTA_image_url ? (
+                <>
+                  <img src={form.CTA_image_url} alt="CTA hero" className="ep-img-preview-img" />
+                  <div className="ep-img-preview-overlay">
+                    <span className="ep-img-preview-badge">
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                      PREMIUM SHOWCASE IMAGE
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="ep-img-empty ep-img-empty--dark">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.4">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                  <span>No CTA image set — will use Featured Image URL or HQ image</span>
+                </div>
+              )}
+            </div>
+            <div className="ep-img-actions">
+              <button className="ep-img-upload-btn ep-img-upload-btn--gold" onClick={() => setUploadTarget('cta')}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                {form.CTA_image_url ? 'Change CTA Image' : 'Upload CTA Image'}
+              </button>
+              {form.CTA_image_url && (
+                <button className="ep-img-remove-btn" onClick={() => update('CTA_image_url', null)}>Remove</button>
+              )}
+            </div>
+          </div>
+
           <div className="ep-grid">
+            <div className="ep-field ep-field--full">
+              <label>Service Title / Headline</label>
+              <input
+                value={fc.title || ''}
+                onChange={(e) => updateFeatured('title', e.target.value)}
+                placeholder="e.g. The Future of AI Ethics in Corporate Governance"
+              />
+            </div>
             <div className="ep-field ep-field--full">
               <label>Excerpt / Service Description</label>
               <textarea
@@ -299,7 +401,7 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
               />
             </div>
             <div className="ep-field">
-              <label>Featured Image URL</label>
+              <label>Featured Image URL <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 11 }}>(fallback if no CTA image)</span></label>
               <input
                 type="url"
                 value={fc.image_url || ''}
@@ -475,6 +577,16 @@ const EditableProfile = ({ profile, onSave, onCancel }) => {
           </div>
         </div>
       </div>
+
+      {/* ── Image Upload Modal ── */}
+      {uploadTarget && (
+        <FeaturedImageUpload
+          isOpen={!!uploadTarget}
+          onClose={() => setUploadTarget(null)}
+          currentUrl={uploadTarget === 'cta' ? (form.CTA_image_url || null) : (form.hq_image_url || null)}
+          onSave={handleImageSave}
+        />
+      )}
     </div>
   );
 };

@@ -344,7 +344,7 @@ const EntityProfile = () => {
               ? [...profile.featured_content.key_benefits]
               : [],
           }
-        : { excerpt: '', article_url: '', image_url: '', highlight_quote: '', why_choose: '', key_benefits: [] },
+        : { title: '', excerpt: '', article_url: '', image_url: '', highlight_quote: '', why_choose: '', key_benefits: [] },
     });
     setSaveError('');
     setIsEditing(true);
@@ -404,8 +404,11 @@ const EntityProfile = () => {
     if (editingImageTarget === 'profile') {
       setProfile((prev) => ({ ...prev, image_url: result }));
     } else if (editingImageTarget === 'hq') {
-      const url = typeof result === 'string' ? result : (result.fullUrl || result.croppedUrl || result);
+      const url = typeof result === 'string' ? result : (result.croppedUrl || result.fullUrl || result);
       setProfile((prev) => ({ ...prev, hq_image_url: url }));
+    } else if (editingImageTarget === 'cta') {
+      const url = typeof result === 'string' ? result : (result.croppedUrl || result.fullUrl || result);
+      setProfile((prev) => ({ ...prev, CTA_image_url: url }));
     } else {
       if (result.fullUrl) {
         setLexiconFullUrl(result.fullUrl);
@@ -423,6 +426,8 @@ const EntityProfile = () => {
         urlsToDelete = [profile?.image_url];
       } else if (editingImageTarget === 'hq') {
         urlsToDelete = [profile?.hq_image_url];
+      } else if (editingImageTarget === 'cta') {
+        urlsToDelete = [profile?.CTA_image_url];
       } else {
         urlsToDelete = [lexiconFullUrl, lexiconCroppedUrl, profile?.image_url];
       }
@@ -444,6 +449,9 @@ const EntityProfile = () => {
       } else if (editingImageTarget === 'hq') {
         await updateAdminProfile({ userId: profile.user_id, updateData: { hq_image_url: null }, table: 'entities_master' });
         setProfile((prev) => ({ ...prev, hq_image_url: null }));
+      } else if (editingImageTarget === 'cta') {
+        await updateAdminProfile({ userId: profile.user_id, updateData: { CTA_image_url: null }, table: 'entities_master' });
+        setProfile((prev) => ({ ...prev, CTA_image_url: null }));
       } else {
         await updateAdminProfile({ userId: profile.user_id, updateData: { photo_url: null, cropped_photo_url: null }, table: 'user_details' });
         await updateAdminProfile({ userId: profile.user_id, updateData: { image_url: null }, table: 'entities_master' });
@@ -532,6 +540,7 @@ const EntityProfile = () => {
           key={`${profile.user_id}-${editingImageTarget}-${(
             editingImageTarget === 'profile' ? (profile.image_url || profile.hero_image_url || profile.hq_image_url) :
             editingImageTarget === 'hq'      ? profile.hq_image_url :
+            editingImageTarget === 'cta'     ? profile.CTA_image_url :
             (lexiconCroppedUrl || lexiconFullUrl || profile.image_url)
           ) || 'empty'}`}
           isOpen={!!editingImageTarget}
@@ -539,15 +548,16 @@ const EntityProfile = () => {
           currentImageUrl={
             editingImageTarget === 'profile' ? (profile.image_url || profile.hero_image_url || profile.hq_image_url) :
             editingImageTarget === 'hq'      ? profile.hq_image_url :
+            editingImageTarget === 'cta'     ? profile.CTA_image_url :
             (lexiconCroppedUrl || lexiconFullUrl || profile.image_url)
           }
           oldFullUrl={
-            editingImageTarget === 'profile' || editingImageTarget === 'hq'
+            editingImageTarget === 'profile' || editingImageTarget === 'hq' || editingImageTarget === 'cta'
               ? null
               : (lexiconFullUrl || profile.image_url)
           }
           oldCroppedUrl={
-            editingImageTarget === 'profile' || editingImageTarget === 'hq'
+            editingImageTarget === 'profile' || editingImageTarget === 'hq' || editingImageTarget === 'cta'
               ? null
               : lexiconCroppedUrl
           }
@@ -555,23 +565,40 @@ const EntityProfile = () => {
           onSave={handleImageSave}
           onDelete={handleImageDelete}
           tableName={
-            editingImageTarget === 'profile' || editingImageTarget === 'hq'
+            editingImageTarget === 'profile' || editingImageTarget === 'hq' || editingImageTarget === 'cta'
               ? 'entities_master'
               : 'user_details'
           }
           columnName={
             editingImageTarget === 'profile' ? 'image_url' :
             editingImageTarget === 'hq'      ? 'hq_image_url' :
+            editingImageTarget === 'cta'     ? 'CTA_image_url' :
             'photo_url'
+          }
+          croppedColumnName={
+            editingImageTarget === 'hq'  ? 'hq_image_url' :
+            editingImageTarget === 'cta' ? 'CTA_image_url' :
+            undefined
+          }
+          cropMode={
+            editingImageTarget === 'hq' || editingImageTarget === 'cta' ? true : undefined
+          }
+          cropWidth={480}
+          cropHeight={
+            editingImageTarget === 'cta' ? 180 :
+            editingImageTarget === 'hq'  ? 208 :
+            300
           }
           title={
             editingImageTarget === 'profile' ? 'Upload Profile Image' :
-            editingImageTarget === 'hq'      ? 'Upload Company HQ Image' :
+            editingImageTarget === 'hq'      ? 'Company HQ Image — Crop & Adjust' :
+            editingImageTarget === 'cta'     ? 'CTA Showcase Image — Crop & Adjust' :
             'Edit Card Image'
           }
           description={
             editingImageTarget === 'profile' ? 'Upload the main hero image for this entity profile.' :
-            editingImageTarget === 'hq'      ? 'Upload a photo of the company headquarters or office. Shown in the Company Headquarters card on standard profiles.' :
+            editingImageTarget === 'hq'      ? 'Upload a headquarters photo. Drag to reposition and zoom to get the perfect crop — displayed landscape in the HQ card.' :
+            editingImageTarget === 'cta'     ? 'Upload the hero image for the Premium Showcase card. Drag to reposition and zoom — displayed as a full-bleed landscape banner.' :
             'Upload your photo. We will save both the full-resolution image and the cropped card version.'
           }
         />
@@ -954,87 +981,82 @@ const EntityProfile = () => {
           {/* Left Column: Featured Service (premium) OR HQ (standard) */}
           {isPremium && featuredContent ? (
             <div className="profile-featured-service" data-analytics-section="featured_content">
-              {/* PREMIUM SHOWCASE badge */}
-              <div className="fs-showcase-badge">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                PREMIUM SHOWCASE
-              </div>
-
-              {/* Section Title */}
-              <div className="fs-title-row">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#06B6D4" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                <h3 className="fs-title">Featured Service</h3>
-              </div>
-
-              {/* Two-column: Info card + Image */}
-              <div className="fs-body">
-                <div className="fs-info-card">
-                  <div className="fs-company-name">{profile.company || profile.name}</div>
-                  <div className="fs-meta-grid">
-                    <div className="fs-meta-item"><span className="fs-meta-label">Sector:</span> <strong>{profile.sector}</strong></div>
-                    <div className="fs-meta-item"><span className="fs-meta-label">Location:</span> <strong>{profile.location}</strong></div>
-                    {profile.website_url && <div className="fs-meta-item"><span className="fs-meta-label">Website:</span> <a href={profile.website_url} className="fs-website-link" target="_blank" rel="noopener noreferrer">{profile.website_url.replace(/^https?:\/\//, '').replace(/\/.*$/, '')}</a></div>}
-                    <div className="fs-meta-item"><span className="fs-meta-label">Status:</span> <strong style={{textTransform:'capitalize'}}>{profile.status || 'Active'}</strong></div>
+              {/* Full-bleed hero image — sourced from database via SafeImage */}
+              <div className="fs-image-wrap">
+                <SafeImage
+                  src={profile.CTA_image_url || featuredContent.image_url || profile.hq_image_url}
+                  alt={`${profile.name} featured service`}
+                  className="fs-image"
+                  fallbackClassName="fs-image-fallback"
+                  fallbackText={getInitials(profile.name)}
+                />
+                <div className="fs-image-gradient" />
+                <div className="fs-image-badges">
+                  <div className="fs-showcase-badge">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    PREMIUM SHOWCASE
                   </div>
+                  <span className="fs-verified-chip">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                    Verified
+                  </span>
+                </div>
+                {/* CTA image edit — overlaid bottom-right */}
+                <button
+                  className="fs-img-edit-btn"
+                  onClick={() => setEditingImageTarget('cta')}
+                  title="Change CTA showcase image"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                  {profile.CTA_image_url ? 'Change Image' : 'Upload Image'}
+                </button>
+              </div>
+
+              {/* All content below image */}
+              <div className="fs-body">
+                <div className="fs-content">
+                  <div className="fs-section-eyebrow">Featured Service</div>
+                  {featuredContent.title && <h3 className="fs-headline">{featuredContent.title}</h3>}
                   <p className="fs-description">{featuredContent.excerpt}</p>
                 </div>
-                <div className="fs-image-wrap">
-                  <SafeImage
-                    src={featuredContent.image_url || profile.hq_image_url}
-                    alt="Featured service"
-                    className="fs-image"
-                    fallbackClassName="fs-image-fallback"
-                    fallbackText={getInitials(profile.name)}
-                  />
-                  <div className="fs-img-overlay-top">Premium Showcase</div>
-                  <div className="fs-img-overlay-bottom">
-                    <span className="fs-img-badge fs-img-badge--verified">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                      Verified Business
-                    </span>
-                    <span className="fs-img-badge fs-img-badge--premium">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                      Premium Profile
-                    </span>
+
+                <div className="fs-divider" />
+
+                {featuredContent.key_benefits && featuredContent.key_benefits.length > 0 && (
+                  <div className="fs-benefits">
+                    <div className="fs-benefits-label">Key Benefits</div>
+                    <div className="fs-benefits-list">
+                      {featuredContent.key_benefits.map((b, i) => (
+                        <div key={i} className="fs-benefit-item">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38BDF8" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                          <span>{b}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {featuredContent.highlight_quote && (
+                  <div className="fs-differentiator">
+                    <p>{featuredContent.highlight_quote}</p>
+                  </div>
+                )}
+
+                {featuredContent.why_choose && (
+                  <div className="fs-why-choose">
+                    <div className="fs-why-label">Why Choose Them</div>
+                    <p>{featuredContent.why_choose}</p>
+                  </div>
+                )}
+
+                <a href={featuredContent.article_url || '#'} className="fs-cta" onClick={() => trackClick('featured_content', { action: 'discover_service' })}>
+                  Discover the Service
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </a>
               </div>
-
-              {/* Key Benefits */}
-              {featuredContent.key_benefits && featuredContent.key_benefits.length > 0 && (
-                <div className="fs-benefits">
-                  <div className="fs-benefits-label">KEY BENEFITS</div>
-                  {featuredContent.key_benefits.map((b, i) => (
-                    <span key={i} className="fs-benefit-pill">
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#06B6D4" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                      {b}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Unique Differentiator */}
-              {featuredContent.highlight_quote && (
-                <div className="fs-differentiator">
-                  <div className="fs-differentiator-label">UNIQUE DIFFERENTIATOR</div>
-                  <p>{featuredContent.highlight_quote}</p>
-                </div>
-              )}
-
-              {/* Why Choose */}
-              {featuredContent.why_choose && (
-                <div className="fs-why-choose">
-                  <div className="fs-why-label">WHY CHOOSE THEM</div>
-                  <p>{featuredContent.why_choose}</p>
-                </div>
-              )}
-
-              {/* CTA */}
-              <a href={featuredContent.article_url || '#'} className="fs-cta" onClick={() => trackClick('featured_content', { action: 'discover_service' })}>
-                Discover the Service
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-              </a>
-              <div className="fs-footer-note">Displayed because this is a Premium Verified profile.</div>
             </div>
           ) : (
             <div className="profile-section-card std-hq-card" data-analytics-section="headquarters">
@@ -1047,24 +1069,27 @@ const EntityProfile = () => {
                   <line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/>
                 </svg>
                 <h3>Company Headquarters</h3>
+              </div>
+              {/* Image with overlaid edit button */}
+              <div className="hq-image-container">
+                <img
+                  src={profile.hq_image_url || 'https://images.unsplash.com/photo-1486325212027-8081e485255e?w=800&q=80&auto=format&fit=crop'}
+                  alt={profile.hq_image_url ? 'Company HQ' : 'Company Headquarters Placeholder'}
+                  className="hq-image"
+                  onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1486325212027-8081e485255e?w=800&q=80&auto=format&fit=crop'; }}
+                />
                 <button
-                  className="hq-upload-btn"
+                  className="hq-img-edit-btn"
                   onClick={() => setEditingImageTarget('hq')}
-                  title="Upload Company HQ Image"
+                  title="Change Company HQ image"
                 >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                     <circle cx="12" cy="13" r="4"/>
                   </svg>
                   {profile.hq_image_url ? 'Change Image' : 'Upload Image'}
                 </button>
               </div>
-              <img
-                src={profile.hq_image_url || 'https://images.unsplash.com/photo-1486325212027-8081e485255e?w=800&q=80&auto=format&fit=crop'}
-                alt={profile.hq_image_url ? 'Company HQ' : 'Company Headquarters Placeholder'}
-                className="hq-image"
-                onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1486325212027-8081e485255e?w=800&q=80&auto=format&fit=crop'; }}
-              />
             </div>
           )}
 
@@ -1193,7 +1218,52 @@ const EntityProfile = () => {
             <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
           </div>
 
-          <div className="op-inline-grid" style={{ marginBottom: 14 }}>
+          {/* CTA Hero Image upload */}
+          <div className="op-cta-img-section">
+            <label className="op-inline-label" style={{ marginBottom: 8, display: 'block' }}>CTA Showcase Image (hero — full bleed top)</label>
+            <div className="op-cta-img-wrap">
+              {profile.CTA_image_url ? (
+                <>
+                  <img src={profile.CTA_image_url} alt="CTA hero" className="op-cta-img" />
+                  <div className="op-cta-img-gradient" />
+                  <span className="op-cta-img-badge">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    PREMIUM IMAGE SET
+                  </span>
+                </>
+              ) : (
+                <div className="op-cta-img-empty">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.4">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                  <span>No CTA image — will use Featured Image URL or HQ image</span>
+                </div>
+              )}
+            </div>
+            <button
+              className="hq-upload-btn"
+              style={{ marginTop: 10 }}
+              onClick={() => setEditingImageTarget('cta')}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+              {profile.CTA_image_url ? 'Change CTA Image' : 'Upload CTA Image'}
+            </button>
+          </div>
+
+          <div className="op-inline-grid" style={{ marginBottom: 14, marginTop: 16 }}>
+            <div className="op-inline-field op-inline-grid--full">
+              <label className="op-inline-label">Service Title / Headline</label>
+              <input
+                className="op-inline-input"
+                value={form.featured_content?.title || ''}
+                onChange={(e) => sfUpdateFeatured('title', e.target.value)}
+                placeholder="e.g. The Future of AI Ethics in Corporate Governance"
+              />
+            </div>
             <div className="op-inline-field op-inline-grid--full">
               <label className="op-inline-label">Excerpt / Service Description</label>
               <textarea
@@ -1215,7 +1285,7 @@ const EntityProfile = () => {
               />
             </div>
             <div className="op-inline-field">
-              <label className="op-inline-label">Featured Image URL</label>
+              <label className="op-inline-label">Featured Image URL <span style={{ fontWeight: 400, textTransform: 'none', fontSize: 11 }}>(fallback)</span></label>
               <input
                 className="op-inline-input"
                 type="url"
