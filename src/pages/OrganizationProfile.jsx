@@ -5,6 +5,7 @@ import { updateAdminProfile } from '../lib/adminProfileApi';
 import ImageEditor, { extractStorageFile } from '../components/ImageEditor';
 import ToastContainer, { useToast } from '../components/Toast';
 import LeadershipPickerModal from '../components/LeadershipPickerModal';
+import { Target, Eye, ExternalLink, Phone, BadgeDollarSign, BarChart2 } from 'lucide-react';
 import './OrganizationProfile.css';
 import '../components/LeadershipPickerModal.css';
 
@@ -53,6 +54,13 @@ const GithubIcon = () => (
     <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
   </svg>
 );
+const InstagramIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+  </svg>
+);
 
 // ============ PROFILE FEATURE FLAGS ============
 const PROFILE_FEATURES = {
@@ -82,6 +90,102 @@ const useScrollReveal = () => {
   }, []);
   return [ref, visible];
 };
+
+const TAG_PALETTES = [
+  { bg: '#eef2ff', color: '#3730a3', border: '#c7d2fe' },
+  { bg: '#f0fdf4', color: '#065f46', border: '#bbf7d0' },
+  { bg: '#fff7ed', color: '#9a3412', border: '#fed7aa' },
+  { bg: '#fdf4ff', color: '#7e22ce', border: '#e9d5ff' },
+  { bg: '#f0f9ff', color: '#0c4a6e', border: '#bae6fd' },
+  { bg: '#fef9c3', color: '#713f12', border: '#fde68a' },
+  { bg: '#fff1f2', color: '#9f1239', border: '#fecdd3' },
+  { bg: '#f0fdfa', color: '#134e4a', border: '#99f6e4' },
+];
+
+const SOCIAL_ICON_MAP = {
+  linkedin:  <LinkedinIcon />,
+  instagram: <InstagramIcon />,
+  youtube:   <YoutubeIcon />,
+  github:    <GithubIcon />,
+  twitter_x: <TwitterXIcon />,
+};
+const SOCIAL_COLOR_MAP = {
+  linkedin:  { bg: '#eff6ff', color: '#0a66c2' },
+  instagram: { bg: '#fdf4ff', color: '#c026d3' },
+  youtube:   { bg: '#fff1f2', color: '#dc2626' },
+  github:    { bg: '#f9fafb', color: '#111827' },
+  twitter_x: { bg: '#f8fafc', color: '#1d4ed8' },
+};
+
+// ============ AUTHORITY RING ============
+const AuthorityRing = ({ score }) => {
+  const pct = Math.min(100, Math.max(0, Number(score) || 0));
+  const r = 38;
+  const circ = 2 * Math.PI * r;
+  const dash = circ - (pct / 100) * circ;
+  const ringColor = pct >= 80 ? '#1E3A8A' : pct >= 55 ? '#6366f1' : '#94a3b8';
+  return (
+    <div className="op-authority-ring">
+      <svg width="100" height="100" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r={r} fill="none" stroke="#e0e7ff" strokeWidth="8" />
+        <circle
+          cx="50" cy="50" r={r} fill="none"
+          stroke={ringColor} strokeWidth="8"
+          strokeDasharray={`${circ}`}
+          strokeDashoffset={dash}
+          strokeLinecap="round"
+          transform="rotate(-90 50 50)"
+          style={{ transition: 'stroke-dashoffset 0.9s ease' }}
+        />
+      </svg>
+      <div className="op-authority-ring__center">
+        <span className="op-authority-ring__score">{score || '—'}</span>
+        <span className="op-authority-ring__sub">/ 100</span>
+      </div>
+    </div>
+  );
+};
+
+// ============ SKELETON ============
+const SkeletonBox = ({ className }) => (
+  <div className={`op-skeleton-shimmer ${className || ''}`} />
+);
+
+const ProfileSkeleton = () => (
+  <div className="op-page">
+    <div className="op-skeleton-shimmer op-skeleton-hero" />
+    <div className="op-header-section">
+      <div className="op-container">
+        <div className="op-skeleton-card">
+          <div className="op-skeleton-left">
+            <div className="op-skeleton-logo-row">
+              <SkeletonBox className="op-skeleton-logo" />
+              <div className="op-skeleton-badges">
+                <SkeletonBox className="op-skeleton-badge" />
+                <SkeletonBox className="op-skeleton-badge" />
+              </div>
+            </div>
+            <SkeletonBox className="op-skeleton-title" />
+            <SkeletonBox className="op-skeleton-line" />
+            <SkeletonBox className="op-skeleton-line op-skeleton-line--short" />
+            <div className="op-skeleton-meta">
+              {[...Array(4)].map((_, i) => <SkeletonBox key={i} className="op-skeleton-meta-item" />)}
+            </div>
+          </div>
+          <SkeletonBox className="op-skeleton-trust" />
+        </div>
+      </div>
+    </div>
+    <div className="op-section" style={{ opacity: 1 }}>
+      <div className="op-container">
+        <SkeletonBox className="op-skeleton-section-title" />
+        <div className="op-skeleton-stats-grid">
+          {[...Array(5)].map((_, i) => <SkeletonBox key={i} className="op-skeleton-stat" />)}
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 // ============ SUB-COMPONENTS (display only) ============
 
@@ -127,8 +231,8 @@ const TrustPanel = ({ trust }) => {
         ))}
       </ul>
       <div className="op-trust-panel__score-wrap">
+        <AuthorityRing score={trust.authorityScore} />
         <span className="op-trust-panel__score-label">Authority Score</span>
-        <span className="op-trust-panel__score-num">{trust.authorityScore || '—'}</span>
       </div>
     </div>
   );
@@ -174,6 +278,460 @@ const LeadershipCard = ({ user_id, entitySlug, name, role, sector, authorityScor
   );
 };
 
+// ============ NEW DISPLAY-ONLY SECTIONS ============
+
+const SpecializationTags = ({ tags }) => {
+  const [ref, visible] = useScrollReveal();
+  if (!tags.length) return null;
+  return (
+    <section ref={ref} className={`op-section op-tags-section ${visible ? 'op-reveal' : ''}`}>
+      <div className="op-container">
+        <h2 className="op-section-title">Specializations</h2>
+        <p className="op-section-subtitle">Core capabilities and areas of expertise</p>
+        <div className="op-tags-meta-row">
+          <span className="op-tags-count-badge">
+            <CheckCircle size={12} />
+            {tags.length} verified specializations
+          </span>
+        </div>
+        <div className="op-tags-wrap">
+          {tags.map((t, i) => {
+            const p = TAG_PALETTES[i % TAG_PALETTES.length];
+            return (
+              <span key={i} className="op-tag" style={{ background: p.bg, color: p.color, borderColor: p.border, animationDelay: `${i * 35}ms` }}>
+                <Check size={11} />{t}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const TrustedPartiesSection = ({ trustedBy, clients, partners }) => {
+  const [ref, visible] = useScrollReveal();
+  const seen = new Set();
+  const allParties = [...trustedBy, ...clients, ...partners].filter((name) => {
+    const key = (name || '').toLowerCase().trim();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (!allParties.length) return null;
+  const n = allParties.length;
+  const cols = n <= 1 ? 1 : n === 2 ? 2 : n === 3 ? 3 : n === 4 ? 2 : n === 5 ? 5 : n <= 9 ? 3 : n <= 12 ? 4 : 5;
+  return (
+    <section ref={ref} className={`op-section op-trusted-parties-section ${visible ? 'op-reveal' : ''}`}>
+      <div className="op-container">
+        <div className="op-trusted-parties-heading">
+          <h2 className="op-section-title">Trusted By</h2>
+          <span className="op-trusted-parties-count"><ShieldCheck size={13} />{allParties.length} verified organizations</span>
+        </div>
+        <p className="op-section-subtitle">Organizations, clients and partners that trust this company</p>
+        <div className="op-trusted-parties-grid" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+          {allParties.map((name, i) => (
+            <div key={i} className="op-trusted-party-card" style={{ animationDelay: `${i * 45}ms` }}>
+              <div className="op-trusted-party-card__accent" />
+              <div className="op-trusted-party-card__icon"><Building2 size={16} /></div>
+              <span className="op-trusted-party-card__name">{name}</span>
+              <span className="op-trusted-party-card__check"><Check size={9} /></span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const NewsAndPress = ({ articles }) => {
+  const [ref, visible] = useScrollReveal();
+  const fmt = (d) => { try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); } catch { return ''; } };
+  if (!articles.length) return null;
+  return (
+    <section ref={ref} className={`op-section op-news-section ${visible ? 'op-reveal' : ''}`}>
+      <div className="op-container">
+        <h2 className="op-section-title">News &amp; Press Coverage</h2>
+        <div className="op-news-grid">
+          {articles.map((a, i) => (
+            <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" className="op-news-card">
+              <div className="op-news-card__source"><Newspaper size={12} />{a.source}</div>
+              <h3 className="op-news-card__title">{a.title}</h3>
+              <div className="op-news-card__footer">
+                <span className="op-news-card__date">{fmt(a.created_at)}</span>
+                <span className="op-news-card__read">Read article <ExternalLink size={11} /></span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const ReviewsAndRatings = ({ reviews }) => {
+  const [ref, visible] = useScrollReveal();
+  const platformColor = { Glassdoor: '#0caa41', G2: '#ff492c', Trustpilot: '#00b67a', Google: '#4285f4' };
+  if (!reviews.length) return null;
+  return (
+    <section ref={ref} className={`op-section op-reviews-section ${visible ? 'op-reveal' : ''}`}>
+      <div className="op-container">
+        <h2 className="op-section-title">Reviews &amp; Ratings</h2>
+        <p className="op-section-subtitle">Aggregated from verified third-party review platforms</p>
+        <div className="op-reviews-grid">
+          {reviews.map((r, i) => (
+            <a key={i} href={r.review_url} target="_blank" rel="noopener noreferrer" className="op-review-card">
+              <div className="op-review-card__platform" style={{ color: platformColor[r.source_platform] || '#1E3A8A' }}>{r.source_platform}</div>
+              <div className="op-review-card__rating-row">
+                <span className="op-review-card__score">{r.rating}</span>
+                <div className="op-review-card__stars">
+                  {[...Array(5)].map((_, j) => (
+                    <Star key={j} size={13} fill={j < Math.round(Number(r.rating)) ? '#f59e0b' : 'none'} />
+                  ))}
+                </div>
+              </div>
+              {r.review_count && <div className="op-review-card__count">{Number(r.review_count).toLocaleString()} reviews</div>}
+              {r.review_snippet && <p className="op-review-card__snippet">{r.review_snippet.length > 110 ? r.review_snippet.slice(0, 110) + '…' : r.review_snippet}</p>}
+              <span className="op-review-card__link">View on {r.source_platform} <ExternalLink size={11} /></span>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const parseAwardMeta = (text) => {
+  const yearMatch = text.match(/\b(20\d{2}|19\d{2})\b/);
+  const year = yearMatch ? yearMatch[0] : null;
+  const platformMatch = text.match(/\bon\s+([A-Za-z][A-Za-z0-9.\s]{1,25}?)(?:\s*[,.]|$)/i);
+  const platform = platformMatch ? platformMatch[1].trim() : null;
+  return { year, platform };
+};
+
+const AwardsSection = ({ awards }) => {
+  const [ref, visible] = useScrollReveal();
+  if (!awards.length) return null;
+  return (
+    <section ref={ref} className={`op-section op-awards-section ${visible ? 'op-reveal' : ''}`}>
+      <div className="op-container">
+        <h2 className="op-section-title">Awards &amp; Recognition</h2>
+        <p className="op-section-subtitle">Verified achievements and industry recognition</p>
+        <div className="op-awards-grid">
+          {awards.map((text, i) => {
+            const { year, platform } = parseAwardMeta(text);
+            return (
+              <div key={i} className="op-award-card">
+                <div className="op-award-card__icon"><Award size={20} /></div>
+                <div className="op-award-card__body">
+                  <p className="op-award-card__text">{text}</p>
+                  <div className="op-award-card__meta">
+                    {year && <span className="op-award-card__year">{year}</span>}
+                    {platform && <span className="op-award-card__platform">{platform}</span>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const parseFunding = (desc) => {
+  if (!desc) return null;
+  const amount = desc.match(/\$([\d.]+[BMK]?(?:\s*(?:[Bb]illion|[Mm]illion|[Tt]rillion))?)/)?.[0] || null;
+  const rounds = desc.match(/(\d+)\s+rounds?/i)?.[1] || null;
+  const investors = desc.match(/(\d+)\s+investors?/i)?.[1] || null;
+  if (!amount && !rounds && !investors) return null;
+  return { amount, rounds, investors };
+};
+
+const INVESTOR_PLATFORM_STYLE = {
+  Crunchbase: { bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' },
+  Tracxn:     { bg: '#f3e8ff', color: '#7c3aed', border: '#e9d5ff' },
+  Dealroom:   { bg: '#dbeafe', color: '#1d4ed8', border: '#bfdbfe' },
+  Wellfound:  { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' },
+  'Y Combinator': { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
+};
+
+const InvestorIntelligenceSection = ({ sources }) => {
+  const [ref, visible] = useScrollReveal();
+  if (!sources?.length) return null;
+  const tracxn = sources.find(s => s.platform === 'Tracxn');
+  const funding = parseFunding(tracxn?.ogDesc || tracxn?.desc);
+  return (
+    <section ref={ref} className={`op-section op-investor-section ${visible ? 'op-reveal' : ''}`}>
+      <div className="op-container">
+        <h2 className="op-section-title">Funding &amp; Investor Intelligence</h2>
+        <p className="op-section-subtitle">Sourced from leading startup intelligence platforms</p>
+        {funding && (
+          <div className="op-investor-summary">
+            {funding.amount && <div className="op-investor-summary__stat"><BadgeDollarSign size={22} /><div><div className="op-investor-summary__val">{funding.amount}</div><div className="op-investor-summary__lbl">Total Raised</div></div></div>}
+            {funding.rounds && <div className="op-investor-summary__stat"><BarChart2 size={22} /><div><div className="op-investor-summary__val">{funding.rounds}</div><div className="op-investor-summary__lbl">Funding Rounds</div></div></div>}
+            {funding.investors && <div className="op-investor-summary__stat"><Users size={22} /><div><div className="op-investor-summary__val">{funding.investors}</div><div className="op-investor-summary__lbl">Investors</div></div></div>}
+          </div>
+        )}
+        <div className="op-investor-sources-grid">
+          {sources.map((src, i) => {
+            const style = INVESTOR_PLATFORM_STYLE[src.platform] || { bg: '#eef2ff', color: '#1E3A8A', border: '#bfdbfe' };
+            const desc = (src.ogDesc || src.desc || '').slice(0, 160);
+            return (
+              <a key={i} href={src.url} target="_blank" rel="noopener noreferrer" className="op-investor-source-card" style={{ '--inv-bg': style.bg, '--inv-color': style.color, '--inv-border': style.border }}>
+                <div className="op-investor-source-card__platform">{src.platform}</div>
+                {desc && <p className="op-investor-source-card__desc">{desc}{desc.length >= 160 ? '…' : ''}</p>}
+                <span className="op-investor-source-card__cta">View on {src.platform} <ExternalLink size={11} /></span>
+              </a>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const PublicationsSection = ({ pubs }) => {
+  const [ref, visible] = useScrollReveal();
+  if (!pubs.length) return null;
+  return (
+    <section ref={ref} className={`op-section op-pubs-section ${visible ? 'op-reveal' : ''}`}>
+      <div className="op-container">
+        <h2 className="op-section-title">Publications &amp; Resources</h2>
+        <div className="op-pubs-list">
+          {pubs.map((p, i) => (
+            <a key={i} href={p.publication_url} target="_blank" rel="noopener noreferrer" className="op-pub-item">
+              <div className="op-pub-item__icon"><Database size={16} /></div>
+              <div className="op-pub-item__body">
+                <h3 className="op-pub-item__title">{p.publication_title}</h3>
+                {p.abstract_snippet && <p className="op-pub-item__abstract">{p.abstract_snippet.length > 130 ? p.abstract_snippet.slice(0, 130) + '…' : p.abstract_snippet}</p>}
+              </div>
+              <div className="op-pub-item__meta">
+                {p.publication_year && <span className="op-pub-item__year">{p.publication_year}</span>}
+                <ExternalLink size={14} className="op-pub-item__ext" />
+              </div>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const ContactInfoSection = ({ contactInfo, mediaAndPress }) => {
+  const [ref, visible] = useScrollReveal();
+  const hasContent = contactInfo?.headquarters || contactInfo?.phone_numbers?.length || contactInfo?.contact_emails?.length || contactInfo?.support_portal_url || mediaAndPress?.length;
+  if (!hasContent) return null;
+  return (
+    <section ref={ref} className={`op-section op-contact-section ${visible ? 'op-reveal' : ''}`}>
+      <div className="op-container">
+        <h2 className="op-section-title">Contact &amp; Presence</h2>
+        <p className="op-section-subtitle">Official contact details and external presence</p>
+        <div className="op-contact-grid">
+          {contactInfo?.headquarters && (
+            <div className="op-contact-card op-contact-card--loc-border">
+              <div className="op-contact-card__icon op-contact-card__icon--loc"><Building2 size={22} /></div>
+              <div className="op-contact-card__body"><span className="op-contact-card__label">Headquarters</span><span className="op-contact-card__value">{contactInfo.headquarters}</span></div>
+            </div>
+          )}
+          {contactInfo?.phone_numbers?.filter(Boolean).map((ph, i) => (
+            <a key={i} href={`tel:${ph}`} className="op-contact-card op-contact-card--link op-contact-card--phone-border">
+              <div className="op-contact-card__icon op-contact-card__icon--phone"><Phone size={22} /></div>
+              <div className="op-contact-card__body"><span className="op-contact-card__label">Phone</span><span className="op-contact-card__value">{ph}</span></div>
+              <ChevronRight size={16} className="op-contact-card__arrow" />
+            </a>
+          ))}
+          {contactInfo?.contact_emails?.filter(Boolean).map((em, i) => (
+            <a key={i} href={`mailto:${em}`} className="op-contact-card op-contact-card--link op-contact-card--mail-border">
+              <div className="op-contact-card__icon op-contact-card__icon--mail"><Mail size={15} /></div>
+              <div className="op-contact-card__body"><span className="op-contact-card__label">Email</span><span className="op-contact-card__value">{em}</span></div>
+              <ChevronRight size={16} className="op-contact-card__arrow" />
+            </a>
+          ))}
+          {contactInfo?.support_portal_url && (
+            <a href={contactInfo.support_portal_url} target="_blank" rel="noopener noreferrer" className="op-contact-card op-contact-card--link op-contact-card--portal-border">
+              <div className="op-contact-card__icon op-contact-card__icon--portal"><Globe size={15} /></div>
+              <div className="op-contact-card__body"><span className="op-contact-card__label">Support Portal</span><span className="op-contact-card__value op-contact-card__value--url">{contactInfo.support_portal_url.replace(/^https?:\/\//, '').split('/')[0]}<ExternalLink size={11} /></span></div>
+              <ChevronRight size={16} className="op-contact-card__arrow" />
+            </a>
+          )}
+        </div>
+        {mediaAndPress?.length > 0 && (
+          <div className="op-contact-press">
+            <span className="op-contact-press__label"><Newspaper size={13} />Press &amp; Media</span>
+            <div className="op-contact-press__links">
+              {mediaAndPress.map((url, i) => {
+                const host = url.replace(/^https?:\/\//, '').split('/')[0];
+                return <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="op-contact-press__pill">{host} <ExternalLink size={10} /></a>;
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const OfficeLocations = ({ locations }) => {
+  const [ref, visible] = useScrollReveal();
+  const [expanded, setExpanded] = useState(false);
+  const SHOW_COUNT = 3;
+  const hasMore = locations.length > 4;
+  const visibleLocations = hasMore && !expanded ? locations.slice(0, SHOW_COUNT) : locations;
+  const hiddenCount = locations.length - SHOW_COUNT;
+  if (!locations.length) return null;
+  return (
+    <section ref={ref} className={`op-section op-locations-section ${visible ? 'op-reveal' : ''}`}>
+      <div className="op-container">
+        <h2 className="op-section-title">Office Locations</h2>
+        <div className="op-locations-grid">
+          {visibleLocations.map((loc, i) => {
+            const city = loc.parsed?.city || loc.city || '';
+            const country = loc.parsed?.countryFull || loc.parsed?.country || loc.country || '';
+            const isHQ = loc.headquarter === 'true' || loc.headquarter === true;
+            return (
+              <div key={i} className={`op-location-card ${isHQ ? 'op-location-card--hq' : ''}`}>
+                {isHQ && <span className="op-location-card__hq">HQ</span>}
+                <MapPin size={20} className="op-location-card__pin" />
+                <div className="op-location-card__city">{city || country}</div>
+                {city && country && <div className="op-location-card__country">{country}</div>}
+              </div>
+            );
+          })}
+          {hasMore && !expanded && (
+            <div className="op-location-card op-location-card--more" onClick={() => setExpanded(true)} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && setExpanded(true)}>
+              <div className="op-location-card__more-inner">
+                <span className="op-location-card__more-count">+{hiddenCount}</span>
+                <span className="op-location-card__more-label">more offices</span>
+                <span className="op-location-card__more-cta">View all <ChevronRight size={12} /></span>
+              </div>
+            </div>
+          )}
+        </div>
+        {hasMore && expanded && (
+          <button className="op-locations-collapse" onClick={() => setExpanded(false)}>
+            <ChevronRight size={14} style={{ transform: 'rotate(-90deg)' }} />Show less
+          </button>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const ProductsSection = ({ products, keyFeatures, pricingUrls, techStack }) => {
+  const [ref, visible] = useScrollReveal();
+  if (!products.length) return null;
+  const firstPricingUrl = pricingUrls.find(Boolean) || null;
+  return (
+    <section ref={ref} className={`op-section op-products-section ${visible ? 'op-reveal' : ''}`}>
+      <div className="op-container">
+        <h2 className="op-section-title">Products &amp; Offerings</h2>
+        <p className="op-section-subtitle">{products.length} product{products.length !== 1 ? 's' : ''} &amp; services</p>
+        {firstPricingUrl && (
+          <div className="op-products-pricing-wrap">
+            <a href={firstPricingUrl} target="_blank" rel="noopener noreferrer" className="op-btn op-btn--primary">View Pricing <ExternalLink size={14} /></a>
+          </div>
+        )}
+        <div className="op-products-grid">
+          {products.map((p, i) => {
+            const productUrl = pricingUrls[i] || firstPricingUrl;
+            const Wrap = productUrl ? 'a' : 'div';
+            const wrapProps = productUrl ? { href: productUrl, target: '_blank', rel: 'noopener noreferrer' } : {};
+            return (
+              <Wrap key={i} className="op-product-card" {...wrapProps}>
+                <div className="op-product-card__index">{String(i + 1).padStart(2, '0')}</div>
+                <h3 className="op-product-card__name">{p.name}</h3>
+                <p className="op-product-card__desc">{p.description}</p>
+                {productUrl && <span className="op-product-card__link">Learn more <ExternalLink size={11} /></span>}
+              </Wrap>
+            );
+          })}
+        </div>
+        {keyFeatures.length > 0 && (
+          <div className="op-products-features">
+            <span className="op-products-features__label">Key Features</span>
+            <div className="op-products-features__chips">
+              {keyFeatures.map((f, i) => <span key={i} className="op-products-feature-chip"><Check size={11} /> {f}</span>)}
+            </div>
+          </div>
+        )}
+        {techStack.length > 0 && (
+          <div className="op-products-tech">
+            <span className="op-products-features__label">Tech Stack</span>
+            <div className="op-products-features__chips">
+              {techStack.map((t, i) => <span key={i} className="op-products-tech-chip">{t}</span>)}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+};
+
+const SimilarOrganizations = ({ orgs }) => {
+  const [ref, visible] = useScrollReveal();
+  if (!orgs.length) return null;
+  return (
+    <section ref={ref} className={`op-section op-similar-section ${visible ? 'op-reveal' : ''}`}>
+      <div className="op-container">
+        <h2 className="op-section-title">Similar Organizations</h2>
+        <div className="op-similar-grid">
+          {orgs.map((o, i) => {
+            const initials = (o.name || '').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+            return (
+              <div key={i} className="op-similar-card">
+                <div className="op-similar-card__logo-wrap">
+                  {o.logo ? <img src={o.logo} alt={o.name} className="op-similar-card__logo" onError={(e) => { e.target.style.display = 'none'; e.target.nextElementSibling.style.display = 'flex'; }} /> : null}
+                  <div className="op-similar-card__logo-fallback" style={{ display: o.logo ? 'none' : 'flex' }}>{initials}</div>
+                </div>
+                <div className="op-similar-card__info">
+                  <div className="op-similar-card__name">{o.name}</div>
+                  {o.employeeCountRange?.start && <div className="op-similar-card__meta"><Users size={11} />{o.employeeCountRange.start}–{o.employeeCountRange.end}</div>}
+                  {o.followerCount && <div className="op-similar-card__meta"><TrendingUp size={11} />{Number(o.followerCount).toLocaleString()} followers</div>}
+                </div>
+                {o.linkedinUrl && (
+                  <a href={o.linkedinUrl} target="_blank" rel="noopener noreferrer" className="op-similar-card__li" onClick={(e) => e.stopPropagation()}>
+                    <LinkedinIcon />
+                  </a>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const SocialMediaSection = ({ socialMedia }) => {
+  const [ref, visible] = useScrollReveal();
+  const entries = Object.entries(socialMedia || {}).filter(([, url]) => url).map(([key, url]) => ({ key, url, label: key.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) }));
+  if (entries.length === 0) return null;
+  return (
+    <section ref={ref} className={`op-section op-social-extra-section ${visible ? 'op-reveal' : ''}`}>
+      <div className="op-container">
+        <h2 className="op-section-title">Social Channels</h2>
+        <p className="op-section-subtitle">Verified social media presence across platforms</p>
+        <div className="op-social-extra-grid">
+          {entries.map(({ key, url, label }) => {
+            const col = SOCIAL_COLOR_MAP[key] || { bg: '#eef2ff', color: '#1E3A8A' };
+            return (
+              <a key={key} href={url} target="_blank" rel="noopener noreferrer" className="op-social-extra-card" style={{ '--sc-bg': col.bg, '--sc-color': col.color }}>
+                <div className="op-social-extra-card__icon">{SOCIAL_ICON_MAP[key] || <Globe size={17} />}</div>
+                <div className="op-social-extra-card__info">
+                  <span className="op-social-extra-card__platform">{label}</span>
+                  <span className="op-social-extra-card__url">{url.replace(/^https?:\/\//, '').replace(/\/$/, '').slice(0, 38)}</span>
+                </div>
+                <ExternalLink size={13} className="op-social-extra-card__ext" />
+              </a>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+};
+
 // ============ MAIN PAGE ============
 const OrganizationProfile = () => {
   const { id } = useParams();
@@ -191,6 +749,13 @@ const OrganizationProfile = () => {
   const [bannerFullUrl,      setBannerFullUrl]      = useState(null);
   const [bannerCroppedUrl,   setBannerCroppedUrl]   = useState(null);
   const [entityCardUrl,      setEntityCardUrl]      = useState(null);
+  const [enrichedData,       setEnrichedData]       = useState({
+    news: [], reviews: [], publications: [],
+    specializations: [], locations: [], similarOrgs: [],
+    products: [], keyFeatures: [], pricingUrls: [],
+    techStack: [], siteClients: [], siteAwards: [], sitePartners: [],
+    contactInfo: null, mediaAndPress: [], socialMedia: {}, investorSources: [],
+  });
   const { toasts, toast, dismiss } = useToast();
 
   const diffInputRef    = useRef(null);
@@ -315,6 +880,55 @@ const OrganizationProfile = () => {
         }))
       );
     }
+
+    // ── Parallel enrichment fetch ──
+    const [newsResult, reviewsResult, liResult, siteDumpResult, investorResult] = await Promise.all([
+      supabase.from('org_news_articles').select('title, url, source, created_at').eq('user_id', orgData.user_id).order('created_at', { ascending: false }).limit(6),
+      supabase.from('org_reviews').select('source_platform, rating, review_count, review_snippet, review_url').eq('user_id', orgData.user_id),
+      supabase.from('org_linkedin_data').select('raw_data').eq('user_id', orgData.user_id).maybeSingle(),
+      supabase.from('organization_site_dump').select('company_data').eq('user_id', orgData.user_id).maybeSingle(),
+      supabase.from('org_investor_page').select('source_platform, scraped_data->metadata').eq('user_id', orgData.user_id),
+    ]);
+
+    let siteDump = siteDumpResult.data?.company_data || null;
+    if (!siteDump && orgName) {
+      const { data: sdFallback } = await supabase.from('organization_site_dump').select('company_data').ilike('company_name', `%${orgName}%`).limit(1).maybeSingle();
+      siteDump = sdFallback?.company_data || null;
+    }
+
+    let { data: pubsData } = await supabase.from('org_publications').select('publication_title, publication_url, abstract_snippet, publication_year').eq('user_id', orgData.user_id).limit(6);
+    if (!pubsData?.length && orgName) {
+      const { data: fallback } = await supabase.from('org_publications').select('publication_title, publication_url, abstract_snippet, publication_year').ilike('organization_name', `%${orgName}%`).limit(6);
+      pubsData = fallback || [];
+    }
+
+    let li = liResult.data?.raw_data;
+    if (typeof li === 'string') { try { li = JSON.parse(li); } catch { li = null; } }
+
+    const specializations = (li?.specialities || []).slice(0, 15);
+    const locations       = (li?.locations || []).filter(l => l.city || l.parsed?.city);
+    const similarOrgs     = (li?.similarOrganizations || []).filter(s => s.name).slice(0, 6);
+
+    const offerings     = siteDump?.offerings || {};
+    const products      = (offerings.products_services || []).filter(p => p.name);
+    const keyFeatures   = (offerings.key_features || []).filter(Boolean).slice(0, 8);
+    const pricingUrls   = (offerings.pricing_pages_urls || []).filter(Boolean);
+    const techStack     = (siteDump?.technical_and_hiring?.tech_stack_mentions || []).filter(Boolean);
+    const siteClients   = (siteDump?.authority_and_trust?.clients || []).filter(Boolean);
+    const siteAwards    = (siteDump?.authority_and_trust?.awards_certifications || []).filter(Boolean);
+    const sitePartners  = (siteDump?.authority_and_trust?.partners || []).filter(Boolean);
+    const contactInfo   = siteDump?.presence_and_contact || null;
+    const extLinks      = siteDump?.external_intelligence_links || {};
+    const socialMedia   = extLinks.social_media || {};
+    const mediaAndPress = (extLinks.media_and_press || []).filter(Boolean);
+    const investorSources = (investorResult.data || []).map(row => ({
+      platform: row.source_platform || 'Unknown',
+      url:      row.metadata?.sourceURL || row.metadata?.url || row.metadata?.['og:url'] || null,
+      desc:     row.metadata?.description || null,
+      ogDesc:   row.metadata?.ogDescription || row.metadata?.['og:description'] || null,
+    })).filter(s => s.url);
+
+    setEnrichedData({ news: newsResult.data || [], reviews: reviewsResult.data || [], publications: pubsData || [], specializations, locations, similarOrgs, products, keyFeatures, pricingUrls, techStack, siteClients, siteAwards, sitePartners, contactInfo, mediaAndPress, socialMedia, investorSources });
 
     setProfile({ ...orgData, details: detailsData || {} });
     setLogoFullUrl(detailsData?.profile_picture_url || null);
@@ -543,7 +1157,7 @@ const OrganizationProfile = () => {
   };
 
   // ── Loading / not found ──
-  if (loading) return <div style={{ padding: '80px 24px', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading profile...</div>;
+  if (loading) return <ProfileSkeleton />;
   if (!profile) return <div style={{ padding: '80px 24px', textAlign: 'center', color: 'var(--text-secondary)' }}>Organization not found.</div>;
 
   // ── Derived display data ──
@@ -895,7 +1509,7 @@ const OrganizationProfile = () => {
                 <h2 className="op-section-title">Company Credibility Snapshot</h2>
                 <div className="op-stats-grid">
                   {statsForDisplay.map((s, i) => (
-                    <div key={i} className="op-stat-card" style={{ animationDelay: `${i * 60}ms` }}>
+                    <div key={i} className={`op-stat-card op-stat-card--${i % 5}`} style={{ animationDelay: `${i * 60}ms` }}>
                       <div className="op-stat-card__icon">{s.icon}</div>
                       <div className="op-stat-card__value">{s.value}</div>
                       <div className="op-stat-card__label">{s.label}</div>
@@ -909,38 +1523,43 @@ const OrganizationProfile = () => {
       )}
 
       {/* ════════════════════════════════════════════════
-          SECTION 3 — Trusted By (premium or editing)
+          ENRICHMENT — Specialization Tags
           ════════════════════════════════════════════════ */}
-      {(features.trustedOrganizations || isEditing) && (trustedOrganizations.length > 0 || isEditing) && (
-        <section className={`op-section op-trusted-section op-reveal ${isEditing ? 'op-edit-section-wrap' : ''}`}>
+      {!isEditing && <SpecializationTags tags={enrichedData.specializations} />}
+
+      {/* ════════════════════════════════════════════════
+          ENRICHMENT — Trusted Parties (consolidated)
+          ════════════════════════════════════════════════ */}
+      {!isEditing && (
+        <TrustedPartiesSection
+          trustedBy={trustedOrganizations}
+          clients={enrichedData.siteClients}
+          partners={enrichedData.sitePartners}
+        />
+      )}
+
+      {/* ════════════════════════════════════════════════
+          SECTION 3 — Trusted By editable (edit mode only)
+          ════════════════════════════════════════════════ */}
+      {isEditing && (
+        <section className="op-section op-trusted-section op-reveal op-edit-section-wrap">
           <div className="op-container">
-            {isEditing ? (
-              <>
-                <div className="op-section-edit-title-row">
-                  <h2 className="op-section-title" style={{ marginBottom: 0 }}>Trusted By</h2>
-                  <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
-                </div>
-                <div className="op-trusted-edit-wrap">
-                  {(form.trusted_by || []).map((name, i) => (
-                    <span key={i} className="op-trusted-edit-chip">
-                      {name}
-                      <button onClick={() => sfRemove('trusted_by', i)}>&times;</button>
-                    </span>
-                  ))}
-                </div>
-                <div className="op-trusted-add-row">
-                  <input ref={trustedInputRef} placeholder="Type organization name..." onKeyDown={(e) => { if (e.key === 'Enter') sfAddStr('trusted_by', trustedInputRef); }} />
-                  <button onClick={() => sfAddStr('trusted_by', trustedInputRef)}>+ Add</button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h2 className="op-section-title">Trusted by Leading Organizations</h2>
-                <div className="op-trusted-chips">
-                  {trustedOrganizations.map((name, i) => <span key={i} className="op-trusted-chip">{name}</span>)}
-                </div>
-              </>
-            )}
+            <div className="op-section-edit-title-row">
+              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Trusted By</h2>
+              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+            </div>
+            <div className="op-trusted-edit-wrap">
+              {(form.trusted_by || []).map((name, i) => (
+                <span key={i} className="op-trusted-edit-chip">
+                  {name}
+                  <button onClick={() => sfRemove('trusted_by', i)}>&times;</button>
+                </span>
+              ))}
+            </div>
+            <div className="op-trusted-add-row">
+              <input ref={trustedInputRef} placeholder="Type organization name..." onKeyDown={(e) => { if (e.key === 'Enter') sfAddStr('trusted_by', trustedInputRef); }} />
+              <button onClick={() => sfAddStr('trusted_by', trustedInputRef)}>+ Add</button>
+            </div>
           </div>
         </section>
       )}
@@ -1007,6 +1626,48 @@ const OrganizationProfile = () => {
       )}
 
       {/* ════════════════════════════════════════════════
+          ENRICHMENT — Products & Offerings
+          ════════════════════════════════════════════════ */}
+      {!isEditing && (
+        <ProductsSection
+          products={enrichedData.products}
+          keyFeatures={enrichedData.keyFeatures}
+          pricingUrls={enrichedData.pricingUrls}
+          techStack={enrichedData.techStack}
+        />
+      )}
+
+      {/* ════════════════════════════════════════════════
+          ENRICHMENT — News & Press
+          ════════════════════════════════════════════════ */}
+      {!isEditing && <NewsAndPress articles={enrichedData.news} />}
+
+      {/* ════════════════════════════════════════════════
+          ENRICHMENT — Reviews & Ratings
+          ════════════════════════════════════════════════ */}
+      {!isEditing && <ReviewsAndRatings reviews={enrichedData.reviews} />}
+
+      {/* ════════════════════════════════════════════════
+          ENRICHMENT — Awards & Recognition
+          ════════════════════════════════════════════════ */}
+      {!isEditing && <AwardsSection awards={enrichedData.siteAwards} />}
+
+      {/* ════════════════════════════════════════════════
+          ENRICHMENT — Investor Intelligence
+          ════════════════════════════════════════════════ */}
+      {!isEditing && <InvestorIntelligenceSection sources={enrichedData.investorSources} />}
+
+      {/* ════════════════════════════════════════════════
+          ENRICHMENT — Publications
+          ════════════════════════════════════════════════ */}
+      {!isEditing && <PublicationsSection pubs={enrichedData.publications} />}
+
+      {/* ════════════════════════════════════════════════
+          ENRICHMENT — Contact & Presence
+          ════════════════════════════════════════════════ */}
+      {!isEditing && <ContactInfoSection contactInfo={enrichedData.contactInfo} mediaAndPress={enrichedData.mediaAndPress} />}
+
+      {/* ════════════════════════════════════════════════
           SECTION 5 — Company Story
           ════════════════════════════════════════════════ */}
       {(hasStory || isEditing) && (
@@ -1051,39 +1712,50 @@ const OrganizationProfile = () => {
             ) : (
               <>
                 <h2 className="op-section-title">Company Story</h2>
-                <div className="op-story-content">
-                  {org.story.mission && (
-                    <div className="op-story-block">
-                      <span className="op-story-label">Mission</span>
-                      <p className="op-story-text">{org.story.mission}</p>
+                <p className="op-section-subtitle">Purpose, vision and what makes this company unique</p>
+                {(org.story.mission || org.story.vision) && (
+                  <div className="op-story-mv-row">
+                    {org.story.mission && (
+                      <div className="op-story-mv-card op-story-mv-card--mission">
+                        <div className="op-story-mv-card__glow" />
+                        <div className="op-story-mv-card__icon"><Target size={20} /></div>
+                        <span className="op-story-mv-card__label">Mission</span>
+                        <p className="op-story-mv-card__text">{org.story.mission}</p>
+                      </div>
+                    )}
+                    {org.story.vision && (
+                      <div className="op-story-mv-card op-story-mv-card--vision">
+                        <div className="op-story-mv-card__glow" />
+                        <div className="op-story-mv-card__icon"><Eye size={20} /></div>
+                        <span className="op-story-mv-card__label">Vision</span>
+                        <p className="op-story-mv-card__text">{org.story.vision}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {org.story.marketPositioning && (
+                  <div className="op-story-market">
+                    <div className="op-story-market__bar" />
+                    <div className="op-story-market__inner">
+                      <span className="op-story-market__label"><TrendingUp size={13} />Market Positioning</span>
+                      <p className="op-story-market__text">{org.story.marketPositioning}</p>
                     </div>
-                  )}
-                  {org.story.vision && (
-                    <div className="op-story-block">
-                      <span className="op-story-label">Vision</span>
-                      <p className="op-story-text">{org.story.vision}</p>
+                  </div>
+                )}
+                {org.story.differentiators.length > 0 && (
+                  <div className="op-story-diff-section">
+                    <span className="op-story-diff-section__title">Key Differentiators</span>
+                    <div className="op-story-diff-grid">
+                      {org.story.differentiators.map((d, i) => (
+                        <div key={i} className="op-story-diff-card" style={{ animationDelay: `${i * 70}ms` }}>
+                          <div className="op-story-diff-card__num">{String(i + 1).padStart(2, '0')}</div>
+                          <div className="op-story-diff-card__check"><Check size={11} /></div>
+                          <p className="op-story-diff-card__text">{d}</p>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                  {org.story.marketPositioning && (
-                    <div className="op-story-block">
-                      <span className="op-story-label">Market Positioning</span>
-                      <p className="op-story-text">{org.story.marketPositioning}</p>
-                    </div>
-                  )}
-                  {org.story.differentiators.length > 0 && (
-                    <div className="op-story-block">
-                      <span className="op-story-label">Key Differentiators</span>
-                      <ul className="op-story-diff-list">
-                        {org.story.differentiators.map((d, i) => (
-                          <li key={i} className="op-story-diff-item">
-                            <span className="op-story-diff-icon"><Check size={13} /></span>
-                            {d}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -1164,6 +1836,21 @@ const OrganizationProfile = () => {
           </div>
         </section>
       )}
+
+      {/* ════════════════════════════════════════════════
+          ENRICHMENT — Office Locations
+          ════════════════════════════════════════════════ */}
+      {!isEditing && <OfficeLocations locations={enrichedData.locations} />}
+
+      {/* ════════════════════════════════════════════════
+          ENRICHMENT — Similar Organizations
+          ════════════════════════════════════════════════ */}
+      {!isEditing && <SimilarOrganizations orgs={enrichedData.similarOrgs} />}
+
+      {/* ════════════════════════════════════════════════
+          ENRICHMENT — Social Media Channels
+          ════════════════════════════════════════════════ */}
+      {!isEditing && <SocialMediaSection socialMedia={enrichedData.socialMedia} />}
 
       {/* ════════════════════════════════════════════════
           SECTION 7 — Verified Relationships (premium, display only)
