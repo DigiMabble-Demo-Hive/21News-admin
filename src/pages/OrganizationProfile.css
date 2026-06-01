@@ -139,7 +139,7 @@
 
 /* ---- Section base ---- */
 .op-section {
-  padding: 40px 0;
+  padding: 48px 0;
   opacity: 0;
 }
 
@@ -153,7 +153,7 @@
 .op-hero {
   position: relative;
   width: 100%;
-  height: 300px;
+  height: 260px;
   overflow: hidden;
   background: linear-gradient(135deg, #1a1436 0%, #1E3A8A 45%, #1e3a6e 75%, #0f172a 100%);
   background-size: 300% 300%;
@@ -182,10 +182,10 @@
    2. ORGANIZATION HEADER CARD  — sits directly below hero
    ============================================================ */
 .op-header-section {
-  background: #ffffff;
-  border-bottom: 1px solid #e8edf5;
-  padding: 20px 0 28px;
-  margin-top: 0;
+  background: transparent;
+  border-bottom: none;
+  padding: 0 0 32px;
+  margin-top: -36px;
   position: relative;
   z-index: 10;
 }
@@ -193,12 +193,12 @@
 .op-header-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(30, 58, 138, 0.06), 0 1px 4px rgba(0, 0, 0, 0.03);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(30, 58, 138, 0.09), 0 2px 8px rgba(0, 0, 0, 0.04);
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: 1fr 288px;
   gap: 32px;
-  padding: 32px;
+  padding: 28px 32px 32px;
   opacity: 0;
 }
 
@@ -215,25 +215,28 @@
 
 .op-header-logo-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 14px;
   flex-wrap: wrap;
 }
 
 .op-org-logo {
-  width: 72px;
-  height: 72px;
-  border-radius: 14px;
+  width: 88px;
+  height: 88px;
+  border-radius: 16px;
   background: #1E3A8A;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 22px;
+  font-weight: 800;
   letter-spacing: 0.5px;
   flex-shrink: 0;
-  border: 2px solid #dbeafe;
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 16px rgba(30, 58, 138, 0.22);
+  /* overflow hidden removed — admin FAB button needs to overflow the logo */
+  margin-top: -56px;
 }
 
 .op-header-badges {
@@ -241,6 +244,7 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  padding-bottom: 6px;
 }
 
 /* ---- Badges ---- */
@@ -269,9 +273,10 @@
 }
 
 .op-badge--premium {
-  background: transparent;
-  color: #00E5FF;
-  border: 1.5px solid #00E5FF;
+  background: linear-gradient(135deg, #1E3A8A, #4f46e5);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 2px 8px rgba(30, 58, 138, 0.3);
 }
 
 /* ---- Org name + tagline ---- */
@@ -374,10 +379,10 @@
    3. TRUST & VERIFICATION PANEL (right side)
    ============================================================ */
 .op-trust-panel {
-  background: #f0f7ff;
-  border: 1.5px solid #bfdbfe;
-  border-radius: 12px;
-  padding: 22px;
+  background: #f5f7ff;
+  border: 1.5px solid #c7d2fe;
+  border-radius: 14px;
+  padding: 22px 20px;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -390,20 +395,20 @@
 }
 
 .op-trust-panel__title {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   color: #1E3A8A;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 0.7px;
   margin-bottom: 14px;
 }
 
 .op-trust-panel__list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 9px;
   padding: 0;
-  margin: 0;
+  margin: 0 0 16px;
   list-style: none;
 }
 
@@ -425,9 +430,9 @@
 }
 
 .op-trust-panel__score-wrap {
-  margin-top: 18px;
+  margin-top: 4px;
   padding-top: 16px;
-  border-top: 1px solid #bfdbfe;
+  border-top: 1px solid #c7d2fe;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -528,10 +533,11 @@
 
 .op-section-subtitle {
   text-align: center;
-  font-size: 14px;
+  font-size: 13px;
   color: #64748b;
-  margin: -20px 0 28px;
+  margin: 0 0 28px;
   font-weight: 400;
+  line-height: 1.6;
 }
 
 .op-stats-grid {
@@ -619,26 +625,51 @@
    ============================================================ */
 .op-services-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 20px;
 }
 
 .op-service-card {
   background: #ffffff;
-  border: 1px solid #e8edf5;
-  border-radius: 14px;
-  padding: 24px 22px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 26px 22px 22px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: all 0.22s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: all 0.25s cubic-bezier(.22,.68,0,1.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  position: relative;
+  overflow: hidden;
+  opacity: 0;
+  animation: op-card-rise 0.5s cubic-bezier(.22,.68,0,1.2) forwards;
 }
 
+.op-service-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #1E3A8A 0%, #6366f1 60%, #00E5FF 100%);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.op-service-card:hover::before { opacity: 1; }
+
 .op-service-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 10px 28px rgba(30, 58, 138, 0.1);
+  transform: translateY(-5px);
+  box-shadow: 0 14px 36px rgba(30, 58, 138, 0.12);
   border-color: #bfdbfe;
+}
+
+.op-service-card__num {
+  font-size: 28px;
+  font-weight: 900;
+  color: #e0e7ff;
+  line-height: 1;
+  letter-spacing: -1.5px;
+  margin-bottom: -4px;
 }
 
 .op-service-card__title {
@@ -650,7 +681,7 @@
 }
 
 .op-service-card__desc {
-  font-size: 13.5px;
+  font-size: 13px;
   color: #374151;
   line-height: 1.6;
   margin: 0;
@@ -659,7 +690,7 @@
 .op-service-card__outcomes-wrap {
   margin-top: 4px;
   padding: 12px;
-  background: #f0f7ff;
+  background: #f5f7ff;
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -686,9 +717,9 @@
   align-items: center;
   gap: 5px;
   background: transparent;
-  border: 1px solid #93c5fd;
+  border: 1px solid #bfdbfe;
   color: #1E3A8A;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   padding: 7px 13px;
   border-radius: 7px;
@@ -696,6 +727,7 @@
   transition: all 0.18s ease;
   margin-top: auto;
   align-self: flex-start;
+  text-decoration: none;
 }
 
 .op-service-card__cta:hover {
@@ -1089,10 +1121,10 @@
    8. CONNECT & FOLLOW
    ============================================================ */
 .op-social-panel {
-  border: 1.5px solid #bfdbfe;
+  border: 1.5px solid #c7d2fe;
   border-radius: 16px;
   padding: 28px 32px;
-  background: #f0f7ff;
+  background: #f5f7ff;
 }
 
 .op-social-panel__header {
@@ -1142,35 +1174,36 @@
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  padding: 13px 22px;
+  padding: 12px 20px;
   border-radius: 10px;
-  border: 1.5px solid #dbeafe;
+  border: 1.5px solid transparent;
+  background: #ffffff;
   text-decoration: none;
   transition: all 0.18s ease;
-  cursor: pointer;
+  color: #1E3A8A;
 }
 
 .op-social-pill:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(30, 58, 138, 0.1);
-  border-color: #1E3A8A;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  filter: brightness(0.95);
 }
 
 .op-social-pill__icon {
   display: flex;
   align-items: center;
-  color: #1E3A8A;
+  color: inherit;
 }
 
 .op-social-pill__icon svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 
 .op-social-pill__label {
-  font-size: 14.5px;
+  font-size: 14px;
   font-weight: 600;
-  color: #1E3A8A;
+  color: inherit;
 }
 
 /* ============================================================
@@ -1322,7 +1355,8 @@
    RESPONSIVE — TABLET
    ============================================================ */
 @media (max-width: 900px) {
-  .op-header-card {
+  .op-header-card,
+  .op-skeleton-card {
     grid-template-columns: 1fr;
   }
 
@@ -1334,10 +1368,6 @@
     grid-template-columns: repeat(3, 1fr);
   }
 
-  .op-services-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
   .op-leadership-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -1346,44 +1376,78 @@
 /* ============================================================
    RESPONSIVE — MOBILE
    ============================================================ */
+@media (max-width: 768px) {
+  .op-hero { height: 210px; }
+
+  .op-org-logo {
+    width: 76px;
+    height: 76px;
+    margin-top: -46px;
+    font-size: 18px;
+  }
+
+  .op-org-name { font-size: 22px; }
+
+  .op-section { padding: 36px 0; }
+  .op-section-title { font-size: 22px; margin-bottom: 20px; }
+
+  .op-stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  }
+
+  .op-leadership-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .op-skeleton-card { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 600px) {
   .op-hero {
-    height: 200px;
+    height: 180px;
   }
 
   .op-header-section {
-    padding: 20px 0 28px;
+    margin-top: -28px;
   }
 
-  .op-header-card {
-    padding: 20px 18px;
-    gap: 24px;
+  .op-header-card,
+  .op-skeleton-card {
+    padding: 20px 18px 24px;
+    gap: 20px;
+    border-radius: 16px;
+  }
+
+  .op-org-logo {
+    width: 70px;
+    height: 70px;
+    margin-top: -44px;
+    border-radius: 12px;
+    font-size: 16px;
   }
 
   .op-org-name {
-    font-size: 22px;
+    font-size: 20px;
   }
+
+  .op-org-desc { font-size: 13px; }
 
   .op-section {
     padding: 28px 0;
-  }
-
-  .op-section-title {
-    font-size: 22px;
-    margin-bottom: 20px;
   }
 
   .op-stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .op-services-grid {
-    grid-template-columns: 1fr;
-  }
+  .op-stat-card { padding: 16px 10px; }
+  .op-stat-card__value { font-size: 20px; }
+  .op-stat-card__label { font-size: 11px; }
 
   .op-leadership-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+  .op-lcard__img-wrap { height: 160px; }
 
   .op-social-panel {
     padding: 20px 18px;
@@ -1410,24 +1474,15 @@
     padding: 24px 16px;
   }
 
-  .op-trusted-chips {
-    gap: 8px;
-  }
-
-  .op-trusted-chip {
-    padding: 8px 16px;
-    font-size: 13px;
-  }
+  .op-skeleton-card { grid-template-columns: 1fr; }
+  .op-skeleton-hero  { height: 180px; }
+  .op-skeleton-logo-row { margin-top: -44px; }
+  .op-skeleton-logo { width: 70px; height: 70px; }
 }
 
 @media (max-width: 420px) {
-  .op-leadership-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .op-stats-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  .op-leadership-grid { grid-template-columns: 1fr; }
+  .op-stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* ============================================================
@@ -1896,20 +1951,23 @@
   animation: op-shimmer 1.4s infinite linear;
   border-radius: 8px;
 }
-.op-skeleton-hero { height: 300px; background: linear-gradient(135deg, #c7d2fe, #ede9fe, #bae6fd); }
+.op-skeleton-hero { height: 260px; background: linear-gradient(135deg, #c7d2fe, #ede9fe, #bae6fd); }
 .op-skeleton-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border-radius: 20px;
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: 1fr 288px;
   gap: 32px;
-  padding: 32px;
-  box-shadow: 0 2px 12px rgba(30, 58, 138, 0.06);
+  padding: 28px 32px 32px;
+  margin-top: -36px;
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 8px 32px rgba(30, 58, 138, 0.09);
 }
 .op-skeleton-left { display: flex; flex-direction: column; gap: 14px; }
-.op-skeleton-logo-row { display: flex; align-items: flex-end; gap: 12px; }
-.op-skeleton-logo { width: 72px; height: 72px; border-radius: 14px; border: 2px solid #fff; flex-shrink: 0; }
+.op-skeleton-logo-row { display: flex; align-items: flex-end; gap: 12px; margin-top: -56px; }
+.op-skeleton-logo { width: 88px; height: 88px; border-radius: 16px; border: 3px solid #fff; flex-shrink: 0; }
 .op-skeleton-badges { display: flex; gap: 8px; padding-bottom: 6px; }
 .op-skeleton-badge { width: 90px; height: 22px; border-radius: 999px; }
 .op-skeleton-title { height: 28px; width: 60%; border-radius: 8px; }
@@ -2389,7 +2447,7 @@ a.op-product-card { cursor: pointer; }
   .op-investor-summary { padding: 16px; }
   .op-investor-summary__stat { min-width: 100%; }
   .op-story-mv-card { padding: 22px 18px; }
-  .op-skeleton-hero { height: 300px; }
+  .op-skeleton-hero { height: 180px; }
 }
 @media (max-width: 420px) {
   .op-reviews-grid { grid-template-columns: 1fr; }
