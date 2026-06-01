@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listBlogPosts, deleteBlogPost, updateBlogPost } from '../lib/blogApi';
 import ToastContainer, { useToast } from '../components/Toast';
@@ -108,14 +108,15 @@ const BlogList = () => {
   const [deleteId, setDeleteId]         = useState(null);
   const [deleting, setDeleting]         = useState(false);
 
-  const handleSort = useCallback((field) => {
-    setSortField(prev => {
-      if (prev === field) { setSortDir(d => d === 'asc' ? 'desc' : 'asc'); return field; }
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
       setSortDir('asc');
-      return field;
-    });
+    }
     setPage(1);
-  }, []);
+  };
 
   const handleToggleFeatured = async (post) => {
     const wasFeatured = post.canonical_url === 'featured';
