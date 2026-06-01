@@ -764,7 +764,14 @@
 
 .bll-sort-th:hover {
   color: #1E3A5F;
-  background: rgba(30, 58, 95, 0.06);
+  background: #EFF6FF;
+}
+
+/* Active sorted column — blue tint on header */
+.bll-sort-th--active {
+  color: #1E3A5F;
+  background: #EFF6FF;
+  border-bottom: 2px solid #1E3A5F;
 }
 
 .bll-sort-th-inner {
@@ -778,18 +785,23 @@
   justify-content: flex-start;
 }
 
-.bll-sort-arrow {
-  font-size: 12px;
-  color: #94A3B8;
+/* SVG sort icon — idle state (unsorted) */
+.bll-sort-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #1E3A5F;         /* active: strong navy */
   transition: color 0.15s;
-  line-height: 1;
-  display: inline-block;
-  opacity: 0.8;
 }
 
-.bll-sort-arrow--active {
-  color: #1E3A5F;
-  opacity: 1;
+/* Idle dual-chevron is more muted */
+.bll-sort-icon--idle {
+  opacity: 0.35;
+}
+
+.bll-sort-th:hover .bll-sort-icon--idle {
+  opacity: 0.7;
 }
 
 /* ── Filter Select Dropdowns (Category / Difficulty) ───────────────────────── */
