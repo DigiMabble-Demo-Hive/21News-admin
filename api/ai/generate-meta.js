@@ -20,8 +20,8 @@ export default async function handler(req, res) {
       messages: [
         {
           role: 'user',
-          content: `Generate an SEO meta title (max 60 chars) and meta description (max 160 chars) for this blog post.
-Return ONLY JSON: { "metaTitle": "...", "metaDescription": "..." }
+          content: `Generate an SEO meta title (max 60 chars), meta description (max 160 chars), and a highly relevant focus keyword (2-4 words) for this blog post.
+Return ONLY JSON: { "metaTitle": "...", "metaDescription": "...", "focusKeyword": "..." }
 
 Title: ${title || ''}
 Content excerpt: ${(content || '').replace(/<[^>]*>/g, ' ').substring(0, 1500)}`,

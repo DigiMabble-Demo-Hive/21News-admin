@@ -1,11 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listBlogPosts, deleteBlogPost, updateBlogPost } from '../lib/blogApi';
+import { listBlogPosts, deleteBlogPost } from '../lib/blogApi';
 import ToastContainer, { useToast } from '../components/Toast';
-import './BlogList.css';
+import './DocList.css';
 
 const DEFAULT_PAGE_SIZE = 10;
 const PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
+const DIFFICULTY_ORDER  = { Beginner: 0, Intermediate: 1, Advanced: 2 };
+
+const CATEGORIES = [
+  'Getting Started',
+  'Verification & Trust',
+  'Google Search Console',
+  'AI Visibility',
+  'Billing & Subscriptions',
+  'Troubleshooting',
+  'Reports & Analytics',
+  'Profile Management',
+];
 
 const STATUS_META = {
   all:            { label: 'All',            cls: '',                    border: 'transparent' },
@@ -13,10 +25,13 @@ const STATUS_META = {
   pending_review: { label: 'Pending Review', cls: 'bll-badge--pending',  border: '#818CF8' },
   approved:       { label: 'Approved',       cls: 'bll-badge--approved', border: '#FCD34D' },
   published:      { label: 'Published',      cls: 'bll-badge--published',border: '#4ADE80' },
-  scheduled:      { label: 'Scheduled',      cls: 'bll-badge--scheduled',border: '#A78BFA' },
 };
 
-const STATUS_ORDER = { published: 0, approved: 1, pending_review: 2, scheduled: 3, draft: 4 };
+const DIFFICULTY_COLORS = {
+  Beginner:     { bg: '#EFF6FF', text: '#1E40AF', border: '#BFDBFE' },
+  Intermediate: { bg: '#FEF3C7', text: '#92400E', border: '#FDE68A' },
+  Advanced:     { bg: '#FEE2E2', text: '#991B1B', border: '#FCA5A5' },
+};
 
 const StatusBadge = ({ status }) => {
   const m = STATUS_META[status] || STATUS_META.draft;
@@ -52,23 +67,16 @@ const Pagination = ({ page, totalPages, onPage }) => {
   const pages = [];
   const delta = 2;
   for (let i = 1; i <= totalPages; i++) {
-    if (i === 1 || i === totalPages || (i >= page - delta && i <= page + delta)) {
-      pages.push(i);
-    } else if (pages[pages.length - 1] !== '…') {
-      pages.push('…');
-    }
+    if (i === 1 || i === totalPages || (i >= page - delta && i <= page + delta)) pages.push(i);
+    else if (pages[pages.length - 1] !== '…') pages.push('…');
   }
   return (
     <div className="bll-pagination">
       <button className="bll-page-btn" onClick={() => onPage(page - 1)} disabled={page === 1}>← Prev</button>
       <div className="bll-page-numbers">
         {pages.map((p, i) =>
-          p === '…' ? (
-            <span key={`e${i}`} className="bll-page-ellipsis">…</span>
-          ) : (
-            <button key={p} className={`bll-page-num${page === p ? ' bll-page-num--active' : ''}`} onClick={() => onPage(p)}>
-              {p}
-            </button>
+          p === '…' ? <span key={`e${i}`} className="bll-page-ellipsis">…</span> : (
+            <button key={p} className={`bll-page-num${page === p ? ' bll-page-num--active' : ''}`} onClick={() => onPage(p)}>{p}</button>
           )
         )}
       </div>
@@ -77,20 +85,31 @@ const Pagination = ({ page, totalPages, onPage }) => {
   );
 };
 
-const BlogList = () => {
+const getDocMeta = (post) => {
+  if (!post.json_ld) return {};
+  if (typeof post.json_ld === 'object') return (!Array.isArray(post.json_ld)) ? post.json_ld : {};
+  try {
+    const parsed = JSON.parse(post.json_ld);
+    return (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) ? parsed : {};
+  } catch { return {}; }
+};
+
+const DocList = () => {
   const navigate = useNavigate();
   const { toasts, toast, dismiss } = useToast();
 
-  const [posts, setPosts]               = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [search, setSearch]             = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [page, setPage]                 = useState(1);
-  const [pageSize, setPageSize]         = useState(DEFAULT_PAGE_SIZE);
-  const [sortField, setSortField]       = useState('created_at');
-  const [sortDir, setSortDir]           = useState('desc');
-  const [deleteId, setDeleteId]         = useState(null);
-  const [deleting, setDeleting]         = useState(false);
+  const [posts, setPosts]                   = useState([]);
+  const [loading, setLoading]               = useState(true);
+  const [search, setSearch]                 = useState('');
+  const [statusFilter, setStatusFilter]     = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [difficultyFilter, setDifficultyFilter] = useState('all');
+  const [page, setPage]                     = useState(1);
+  const [pageSize, setPageSize]             = useState(DEFAULT_PAGE_SIZE);
+  const [sortField, setSortField]           = useState('created_at');
+  const [sortDir, setSortDir]               = useState('desc');
+  const [deleteId, setDeleteId]             = useState(null);
+  const [deleting, setDeleting]             = useState(false);
 
   const handleSort = useCallback((field) => {
     setSortField(prev => {
@@ -101,38 +120,19 @@ const BlogList = () => {
     setPage(1);
   }, []);
 
-  const handleToggleFeatured = async (post) => {
-    const wasFeatured = post.canonical_url === 'featured';
-    const newCanonicalUrl = wasFeatured ? '' : 'featured';
-    setPosts(prev =>
-      prev.map(p => {
-        if (p.id === post.id) return { ...p, canonical_url: newCanonicalUrl };
-        if (!wasFeatured && p.canonical_url === 'featured') return { ...p, canonical_url: '' };
-        return p;
-      })
-    );
-    try {
-      await updateBlogPost(post.id, { ...post, canonical_url: newCanonicalUrl });
-      toast(wasFeatured ? 'Post removed from featured.' : 'Post set as featured!');
-    } catch (err) {
-      toast(err.message, 'error');
-      try { const data = await listBlogPosts(); setPosts(data); } catch {}
-    }
-  };
-
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         const data = await listBlogPosts();
-        const blogs = (data || []).filter(p => {
-          if (!p.json_ld) return true;
+        const docs = (data || []).filter(p => {
+          if (!p.json_ld) return false;
           let meta = {};
           if (typeof p.json_ld === 'object') meta = p.json_ld;
-          else { try { meta = JSON.parse(p.json_ld || '{}'); } catch { return true; } }
-          return !meta || typeof meta !== 'object' || Array.isArray(meta) || meta.post_type !== 'documentation';
+          else { try { meta = JSON.parse(p.json_ld || '{}'); } catch { return false; } }
+          return meta && typeof meta === 'object' && !Array.isArray(meta) && meta.post_type === 'documentation';
         });
-        setPosts(blogs);
+        setPosts(docs);
       } catch (err) {
         toast(err.message, 'error');
       } finally {
@@ -141,33 +141,40 @@ const BlogList = () => {
     })();
   }, []);
 
-  /* Reset page when filters/sort/pageSize change */
-  useEffect(() => { setPage(1); }, [search, statusFilter, sortField, sortDir, pageSize]);
+  /* Reset page when any filter changes */
+  useEffect(() => { setPage(1); }, [search, statusFilter, categoryFilter, difficultyFilter, sortField, sortDir, pageSize]);
 
   const filtered = posts.filter(p => {
-    const matchStatus = statusFilter === 'all' || p.status === statusFilter;
+    const meta = getDocMeta(p);
+    const matchStatus     = statusFilter === 'all'     || p.status === statusFilter;
+    const matchCategory   = categoryFilter === 'all'   || meta.category === categoryFilter;
+    const matchDifficulty = difficultyFilter === 'all' || meta.difficulty === difficultyFilter;
     const q = search.toLowerCase();
     const matchSearch = !q || p.title?.toLowerCase().includes(q) || p.slug?.toLowerCase().includes(q);
-    return matchStatus && matchSearch;
+    return matchStatus && matchCategory && matchDifficulty && matchSearch;
   });
 
   /* Sort */
   const sorted = [...filtered].sort((a, b) => {
+    const ma = getDocMeta(a);
+    const mb = getDocMeta(b);
     let va, vb;
     switch (sortField) {
       case 'title':
-        va = (a.title || '').toLowerCase(); vb = (b.title || '').toLowerCase();
+        va = (a.title || '').toLowerCase(); vb = (b.title || '').toLowerCase(); break;
+      case 'category':
+        va = (ma.category || '').toLowerCase(); vb = (mb.category || '').toLowerCase(); break;
+      case 'difficulty':
+        va = DIFFICULTY_ORDER[ma.difficulty] ?? 99; vb = DIFFICULTY_ORDER[mb.difficulty] ?? 99; break;
+      case 'rating': {
+        const ta = (ma.helpful_count || 0) + (ma.not_helpful_count || 0);
+        const tb = (mb.helpful_count || 0) + (mb.not_helpful_count || 0);
+        va = ta > 0 ? (ma.helpful_count || 0) / ta : -1;
+        vb = tb > 0 ? (mb.helpful_count || 0) / tb : -1;
         break;
+      }
       case 'status':
-        va = STATUS_ORDER[a.status] ?? 99; vb = STATUS_ORDER[b.status] ?? 99;
-        break;
-      case 'featured':
-        va = a.canonical_url === 'featured' ? 0 : 1; vb = b.canonical_url === 'featured' ? 0 : 1;
-        break;
-      case 'published_at':
-        va = a.published_at ? new Date(a.published_at).getTime() : 0;
-        vb = b.published_at ? new Date(b.published_at).getTime() : 0;
-        break;
+        va = a.status || ''; vb = b.status || ''; break;
       default: // created_at
         va = a.created_at ? new Date(a.created_at).getTime() : 0;
         vb = b.created_at ? new Date(b.created_at).getTime() : 0;
@@ -191,7 +198,7 @@ const BlogList = () => {
       setDeleting(true);
       await deleteBlogPost(deleteId);
       setPosts(prev => prev.filter(p => p.id !== deleteId));
-      toast('Post deleted.');
+      toast('Document deleted.');
     } catch (err) {
       toast(err.message, 'error');
     } finally {
@@ -201,6 +208,7 @@ const BlogList = () => {
   };
 
   const handlePage = (p) => { setPage(p); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const hasActiveFilters = search || statusFilter !== 'all' || categoryFilter !== 'all' || difficultyFilter !== 'all';
 
   const sortProps = { sortField, sortDir, onSort: handleSort };
 
@@ -211,14 +219,14 @@ const BlogList = () => {
       {/* ── Header ──────────────────────────────────────────────── */}
       <div className="bll-header">
         <div className="bll-header-left">
-          <h1 className="bll-title">Blog Posts</h1>
-          <p className="bll-subtitle">Create and manage SEO-optimised articles</p>
+          <h1 className="bll-title">Documentation Articles</h1>
+          <p className="bll-subtitle">Create and manage internal &amp; external support guides</p>
         </div>
-        <button className="bll-new-btn" onClick={() => navigate('/blog/new')}>
+        <button className="bll-new-btn" onClick={() => navigate('/docs/new')}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
-          New Post
+          New Document
         </button>
       </div>
 
@@ -232,7 +240,7 @@ const BlogList = () => {
           <input
             className="bll-search"
             type="text"
-            placeholder="Search title or slug…"
+            placeholder="Search guides…"
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -245,7 +253,39 @@ const BlogList = () => {
           )}
         </div>
 
-        {/* Status filter chips */}
+        {/* Category dropdown */}
+        <div className="bll-filter-select-wrap">
+          <svg className="bll-filter-select-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 6h16M7 12h10M10 18h4"/>
+          </svg>
+          <select
+            className="bll-filter-select"
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+          >
+            <option value="all">All Categories</option>
+            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+
+        {/* Difficulty dropdown */}
+        <div className="bll-filter-select-wrap">
+          <svg className="bll-filter-select-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          <select
+            className="bll-filter-select"
+            value={difficultyFilter}
+            onChange={e => setDifficultyFilter(e.target.value)}
+          >
+            <option value="all">All Difficulties</option>
+            <option value="Beginner">Beginner</option>
+            <option value="Intermediate">Intermediate</option>
+            <option value="Advanced">Advanced</option>
+          </select>
+        </div>
+
+        {/* Status chips */}
         <div className="bll-filter-chips">
           {Object.entries(STATUS_META).map(([key, meta]) => (
             <button
@@ -274,6 +314,16 @@ const BlogList = () => {
             {PAGE_SIZE_OPTIONS.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </div>
+
+        {/* Clear all filters */}
+        {hasActiveFilters && (
+          <button
+            className="bll-clear-filters-btn"
+            onClick={() => { setSearch(''); setStatusFilter('all'); setCategoryFilter('all'); setDifficultyFilter('all'); }}
+          >
+            ✕ Clear filters
+          </button>
+        )}
       </div>
 
       {/* ── Body ─────────────────────────────────────────────────── */}
@@ -283,17 +333,18 @@ const BlogList = () => {
             <table className="bll-table">
               <thead>
                 <tr>
-                  <th className="bll-th-left" style={{ width: '38%' }}>Title</th>
-                  <th>Featured</th><th>Status</th><th>Published</th><th>Actions</th>
+                  <th className="bll-th-left" style={{ width: '32%' }}>Title</th>
+                  <th>Category</th><th>Difficulty</th><th>Feedback</th><th>Status</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="bll-row bll-row--skeleton">
                     <td><div className="bll-skel bll-skel--title" /><div className="bll-skel bll-skel--sub" /></td>
-                    <td style={{ textAlign: 'center' }}><div className="bll-skel bll-skel--star" style={{ margin: '0 auto', width: '20px', height: '20px', borderRadius: '50%', background: '#E2E8F0' }} /></td>
+                    <td style={{ textAlign: 'center' }}><div className="bll-skel bll-skel--slug" style={{ margin: '0 auto', width: '90px' }} /></td>
+                    <td style={{ textAlign: 'center' }}><div className="bll-skel bll-skel--slug" style={{ margin: '0 auto', width: '70px' }} /></td>
+                    <td style={{ textAlign: 'center' }}><div className="bll-skel bll-skel--slug" style={{ margin: '0 auto', width: '80px' }} /></td>
                     <td style={{ textAlign: 'center' }}><div className="bll-skel bll-skel--badge" style={{ margin: '0 auto' }} /></td>
-                    <td style={{ textAlign: 'center' }}><div className="bll-skel bll-skel--date" style={{ margin: '0 auto' }} /></td>
                     <td style={{ textAlign: 'center' }}><div className="bll-skel bll-skel--actions" style={{ margin: '0 auto' }} /></td>
                   </tr>
                 ))}
@@ -308,10 +359,19 @@ const BlogList = () => {
                 <polyline points="14 2 14 8 20 8"/>
               </svg>
             </div>
-            <p className="bll-empty-title">{search || statusFilter !== 'all' ? 'No posts match your filters' : 'No posts yet'}</p>
-            <p className="bll-empty-sub">{search || statusFilter !== 'all' ? 'Try adjusting the search or filter.' : 'Create your first blog post to get started.'}</p>
-            {!search && statusFilter === 'all' && (
-              <button className="bll-new-btn" style={{ marginTop: 4 }} onClick={() => navigate('/blog/new')}>Create First Post</button>
+            <p className="bll-empty-title">{hasActiveFilters ? 'No guides match your filters' : 'No guides yet'}</p>
+            <p className="bll-empty-sub">{hasActiveFilters ? 'Try adjusting the search or filters.' : 'Create your first documentation guide to get started.'}</p>
+            {!hasActiveFilters && (
+              <button className="bll-new-btn" style={{ marginTop: 4 }} onClick={() => navigate('/docs/new')}>Create First Guide</button>
+            )}
+            {hasActiveFilters && (
+              <button
+                className="bll-clear-filters-btn"
+                style={{ marginTop: 8 }}
+                onClick={() => { setSearch(''); setStatusFilter('all'); setCategoryFilter('all'); setDifficultyFilter('all'); }}
+              >
+                ✕ Clear all filters
+              </button>
             )}
           </div>
         ) : (
@@ -319,7 +379,9 @@ const BlogList = () => {
             {/* Toolbar — top */}
             <div className="bll-table-toolbar">
               <span className="bll-result-count">
-                {sorted.length} post{sorted.length !== 1 ? 's' : ''}
+                {sorted.length} guide{sorted.length !== 1 ? 's' : ''}
+                {categoryFilter !== 'all' ? ` · ${categoryFilter}` : ''}
+                {difficultyFilter !== 'all' ? ` · ${difficultyFilter}` : ''}
                 {statusFilter !== 'all' ? ` · ${STATUS_META[statusFilter]?.label}` : ''}
                 {search ? ` · "${search}"` : ''}
               </span>
@@ -330,16 +392,24 @@ const BlogList = () => {
             <table className="bll-table">
               <thead>
                 <tr>
-                  <SortTh field="title"        label="Title"     align="left" width="38%" {...sortProps} />
-                  <SortTh field="featured"     label="Featured"  {...sortProps} />
-                  <SortTh field="status"       label="Status"    {...sortProps} />
-                  <SortTh field="published_at" label="Published" {...sortProps} />
+                  <SortTh field="title"      label="Title"      align="left" width="32%" {...sortProps} />
+                  <SortTh field="category"   label="Category"   {...sortProps} />
+                  <SortTh field="difficulty" label="Difficulty" {...sortProps} />
+                  <SortTh field="rating"     label="Feedback"   {...sortProps} />
+                  <SortTh field="status"     label="Status"     {...sortProps} />
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {paginated.map(post => {
                   const m = STATUS_META[post.status] || STATUS_META.draft;
+                  const meta = getDocMeta(post);
+                  const diffColor = DIFFICULTY_COLORS[meta.difficulty] || DIFFICULTY_COLORS.Beginner;
+                  const helpfulVal   = meta.helpful_count     || 0;
+                  const unhelpfulVal = meta.not_helpful_count || 0;
+                  const totalFeedback = helpfulVal + unhelpfulVal;
+                  const percentHelpful = totalFeedback > 0 ? Math.round((helpfulVal / totalFeedback) * 100) : 0;
+
                   return (
                     <tr key={post.id} className="bll-row" style={{ borderLeft: `3px solid ${m.border}` }}>
 
@@ -349,11 +419,11 @@ const BlogList = () => {
                           <img src={post.featured_image_url} alt="" className="bll-thumb" />
                         )}
                         <div className="bll-td-title-text">
-                          <div className="bll-post-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                            {post.title || '(Untitled)'}
-                            {post.canonical_url === 'featured' && (
-                              <span className="bll-badge bll-badge--published" style={{ background: '#EFF6FF', color: '#0256d6', borderColor: '#BFDBFE', fontSize: '10px', padding: '2px 8px', fontWeight: 'bold', textTransform: 'capitalize', cursor: 'default' }}>
-                                Featured
+                          <div className="bll-post-title" style={{ fontWeight: '600' }}>
+                            {post.title || '(Untitled Document)'}
+                            {meta.is_troubleshooting && (
+                              <span className="bll-badge" style={{ background: '#FEF2F2', color: '#EF4444', borderColor: '#FCA5A5', fontSize: '9px', padding: '1px 5px', fontWeight: 'bold', marginLeft: '8px' }}>
+                                Troubleshooting
                               </span>
                             )}
                           </div>
@@ -365,41 +435,55 @@ const BlogList = () => {
                         </div>
                       </td>
 
-                      {/* Featured star */}
+                      {/* Category */}
                       <td className="bll-td-center">
-                        <button
-                          onClick={() => handleToggleFeatured(post)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s ease, background-color 0.2s ease' }}
-                          onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F1F5F9'}
-                          onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                          title={post.canonical_url === 'featured' ? 'Remove from Featured' : 'Mark as Featured'}
-                        >
-                          {post.canonical_url === 'featured' ? (
-                            <svg width="19" height="19" viewBox="0 0 24 24" fill="#F59E0B" stroke="#D97706" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                            </svg>
-                          ) : (
-                            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                            </svg>
-                          )}
-                        </button>
+                        <span className="bll-badge" style={{ background: '#F1F5F9', color: '#475569', borderColor: '#E2E8F0', textTransform: 'capitalize' }}>
+                          {meta.category || 'General'}
+                        </span>
+                      </td>
+
+                      {/* Difficulty */}
+                      <td className="bll-td-center">
+                        <span className="bll-badge" style={{ background: diffColor.bg, color: diffColor.text, borderColor: diffColor.border, fontWeight: '700' }}>
+                          {meta.difficulty || 'Beginner'}
+                        </span>
+                      </td>
+
+                      {/* Feedback */}
+                      <td className="bll-td-center">
+                        {totalFeedback > 0 ? (
+                          <div className="dl-feedback-cell">
+                            <div className="dl-feedback-bar-wrap">
+                              <div
+                                className="dl-feedback-bar-fill"
+                                style={{
+                                  width: `${percentHelpful}%`,
+                                  background: percentHelpful >= 70 ? '#22C55E' : percentHelpful >= 40 ? '#F59E0B' : '#EF4444',
+                                }}
+                              />
+                            </div>
+                            <div className="dl-feedback-meta">
+                              <span
+                                className="dl-feedback-pct"
+                                style={{ color: percentHelpful >= 70 ? '#15803D' : percentHelpful >= 40 ? '#B45309' : '#B91C1C' }}
+                              >
+                                {percentHelpful}%
+                              </span>
+                              <span className="dl-feedback-votes">{totalFeedback} votes</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="dl-feedback-empty">No feedback yet</span>
+                        )}
                       </td>
 
                       {/* Status */}
                       <td className="bll-td-center"><StatusBadge status={post.status} /></td>
 
-                      {/* Date */}
-                      <td className="bll-td-center bll-td-date">
-                        {post.published_at
-                          ? new Date(post.published_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-                          : <span className="bll-unpublished">—</span>}
-                      </td>
-
                       {/* Actions */}
                       <td className="bll-td-center">
                         <div className="bll-actions-inner">
-                          <button className="bll-action-btn bll-action-btn--edit" onClick={() => navigate(`/blog/${post.id}`)}>
+                          <button className="bll-action-btn bll-action-btn--edit" onClick={() => navigate(`/docs/${post.id}`)}>
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -445,12 +529,12 @@ const BlogList = () => {
                 <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
               </svg>
             </div>
-            <h3 className="bll-confirm-title">Delete this post?</h3>
-            <p className="bll-confirm-body">This cannot be undone. The post will be permanently removed.</p>
+            <h3 className="bll-confirm-title">Delete this document?</h3>
+            <p className="bll-confirm-body">This cannot be undone. The document will be permanently removed.</p>
             <div className="bll-confirm-actions">
               <button className="bll-confirm-cancel" onClick={() => setDeleteId(null)} disabled={deleting}>Cancel</button>
               <button className="bll-confirm-delete" onClick={handleDelete} disabled={deleting}>
-                {deleting ? 'Deleting…' : 'Delete Post'}
+                {deleting ? 'Deleting…' : 'Delete'}
               </button>
             </div>
           </div>
@@ -460,4 +544,4 @@ const BlogList = () => {
   );
 };
 
-export default BlogList;
+export default DocList;

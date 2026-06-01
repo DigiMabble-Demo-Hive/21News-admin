@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     if (action === 'list') {
       const { data: rows, error } = await db
         .from('blog_posts')
-        .select('id, title, slug, status, published_at, created_at, featured_image_url, meta_description, excerpt, canonical_url')
+        .select('id, title, slug, status, published_at, created_at, featured_image_url, meta_description, excerpt, canonical_url, json_ld')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return res.status(200).json({ data: rows });
@@ -103,8 +103,13 @@ export default async function handler(req, res) {
 
     return res.status(400).json({ error: `Unknown action: ${action}` });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error('blog API error:', msg);
+    let msg = '';
+    if (err && typeof err === 'object') {
+      msg = err.message || err.details || JSON.stringify(err);
+    } else {
+      msg = String(err);
+    }
+    console.error('blog API error details:', err);
     return res.status(400).json({ error: msg });
   }
 }

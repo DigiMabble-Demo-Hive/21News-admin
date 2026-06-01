@@ -3,12 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   getBlogPost, createBlogPost, updateBlogPost, generateSlug, checkSlugUnique,
 } from '../lib/blogApi';
-import { generateBlogJsonLd } from '../utils/blogJsonLdGenerator';
-import { calcAiReadiness, readinessColor, readinessLabel } from '../utils/aiReadinessScore';
 import TipTapEditor from '../components/blog/TipTapEditor';
 import BlogImageUpload from '../components/blog/BlogImageUpload';
 import ToastContainer, { useToast } from '../components/Toast';
-import './BlogEditor.css';
+import './DocEditor.css';
 
 const TABS = [
   { id: 'content',         label: 'Content' },
@@ -16,26 +14,36 @@ const TABS = [
   { id: 'seo',             label: 'SEO' },
   { id: 'structured-data', label: 'Structured Data' },
   { id: 'ai',              label: 'AI Optimization' },
-  { id: 'analytics',       label: 'Analytics' },
   { id: 'publishing',      label: 'Publishing' },
 ];
 
-const BLANK_POST = {
+const CATEGORIES = [
+  'Getting Started',
+  'Verification & Trust',
+  'Google Search Console',
+  'AI Visibility',
+  'Billing & Subscriptions',
+  'Troubleshooting',
+  'Reports & Analytics',
+  'Profile Management'
+];
+
+const BLANK_DOC = {
   title: '', slug: '', content: '', excerpt: '',
   featured_image_url: '', featured_image_alt: '',
   meta_title: '', meta_description: '', focus_keyword: '',
   json_ld: null, status: 'draft', canonical_url: '',
   scheduled_publish_at: null, published_at: null,
-  author: '', ai_readiness_score: 0,
+  author: '21 News Lexicon Support', ai_readiness_score: 0,
   detected_entities: [], faq_pairs: [],
 };
 
-const BlogEditor = () => {
+const DocEditor = () => {
   const { id }   = useParams();
   const navigate = useNavigate();
   const isNew    = !id;
 
-  const [post, setPost]                     = useState(BLANK_POST);
+  const [post, setPost]                     = useState(BLANK_DOC);
   const [activeTab, setActiveTab]           = useState('content');
   const [loading, setLoading]               = useState(!isNew);
   const [saving, setSaving]                 = useState(false);
@@ -49,6 +57,13 @@ const BlogEditor = () => {
   const { toasts, toast: showToastMsg, dismiss } = useToast();
   const [postId, setPostId]                 = useState(id || null);
 
+  // Docs Specific Fields
+  const [difficulty, setDifficulty]         = useState('Beginner');
+  const [category, setCategory]             = useState('Getting Started');
+  const [isTroubleshooting, setIsTroubleshooting] = useState(false);
+  const [helpfulCount, setHelpfulCount]     = useState(0);
+  const [notHelpfulCount, setNotHelpfulCount] = useState(0);
+
   const autoSaveTimer = useRef(null);
   const slugTimer     = useRef(null);
 
@@ -58,14 +73,30 @@ const BlogEditor = () => {
     setPost((prev) => ({ ...prev, [key]: value }));
   }, []);
 
+  const unpackMetadata = (jsonLd) => {
+    if (!jsonLd) return;
+    let meta = {};
+    if (typeof jsonLd === 'object') {
+      meta = jsonLd;
+    } else {
+      try { meta = JSON.parse(jsonLd || '{}'); } catch (e) { return; }
+    }
+    if (meta.difficulty) setDifficulty(meta.difficulty);
+    if (meta.category) setCategory(meta.category);
+    if (meta.is_troubleshooting !== undefined) setIsTroubleshooting(meta.is_troubleshooting);
+    if (meta.helpful_count !== undefined) setHelpfulCount(meta.helpful_count);
+    if (meta.not_helpful_count !== undefined) setNotHelpfulCount(meta.not_helpful_count);
+  };
+
   /* Load existing post */
   useEffect(() => {
     if (isNew) return;
     const load = async () => {
       try {
         const data = await getBlogPost(id);
-        setPost({ ...BLANK_POST, ...data });
+        setPost({ ...BLANK_DOC, ...data });
         setPostId(id);
+        unpackMetadata(data.json_ld);
       } catch (err) {
         showToast(err.message, 'error');
       } finally {
@@ -75,6 +106,37 @@ const BlogEditor = () => {
     load();
   }, [id, isNew]);
 
+  const packMetadata = (currentPost) => {
+    // Generate automatic reading time calculation scientifically (Math.ceil(wordCount / 200) min)
+    const rawText = (currentPost.content || '').replace(/<[^>]*>/g, ' ').trim();
+    const wordCountVal = rawText.split(/\s+/).filter(Boolean).length;
+    const readTimeMin = Math.max(1, Math.ceil(wordCountVal / 200));
+
+    const meta = {
+      post_type: 'documentation',
+      difficulty,
+      category,
+      is_troubleshooting: isTroubleshooting,
+      helpful_count: helpfulCount,
+      not_helpful_count: notHelpfulCount,
+      reading_time: `${readTimeMin} min read`,
+      schema: {
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        "headline": currentPost.title,
+        "description": currentPost.meta_description || currentPost.excerpt,
+        "proficiencyLevel": difficulty,
+        "articleSection": category,
+        "inLanguage": "en",
+        "author": {
+          "@type": "Organization",
+          "name": "21 News Lexicon Support"
+        }
+      }
+    };
+    return meta;
+  };
+
   /* Auto-save: draft every 30s after any change */
   const triggerAutoSave = useCallback(() => {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
@@ -82,14 +144,16 @@ const BlogEditor = () => {
       if (!postId) return;
       setSaveStatus('saving');
       try {
-        await updateBlogPost(postId, post);
+        const toSave = { ...post };
+        toSave.json_ld = packMetadata(toSave);
+        await updateBlogPost(postId, toSave);
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus(''), 2500);
       } catch {
         setSaveStatus('');
       }
     }, 30000);
-  }, [postId, post]);
+  }, [postId, post, difficulty, category, isTroubleshooting, helpfulCount, notHelpfulCount]);
 
   useEffect(() => {
     if (postId) triggerAutoSave();
@@ -132,11 +196,6 @@ const BlogEditor = () => {
     if (overrideStatus) toSave.status = overrideStatus;
 
     if (toSave.status === 'published') {
-      if (!toSave.featured_image_url) {
-        showToast('Add a featured image before publishing.', 'error');
-        setActiveTab('media');
-        return;
-      }
       if (!toSave.meta_description) {
         showToast('Add a meta description before publishing.', 'error');
         setActiveTab('seo');
@@ -144,8 +203,7 @@ const BlogEditor = () => {
       }
     }
 
-    toSave.ai_readiness_score = calcAiReadiness(toSave);
-    toSave.json_ld = generateBlogJsonLd(toSave);
+    toSave.json_ld = packMetadata(toSave);
 
     // Postgres rejects empty strings for timestamp fields — coerce to null
     ['scheduled_publish_at', 'published_at'].forEach((f) => {
@@ -157,13 +215,15 @@ const BlogEditor = () => {
       if (isNew && !postId) {
         const created = await createBlogPost(toSave);
         setPostId(created.id);
-        setPost({ ...BLANK_POST, ...created });
-        navigate(`/blog/${created.id}`, { replace: true });
-        showToast('Post created.');
+        setPost({ ...BLANK_DOC, ...created });
+        unpackMetadata(created.json_ld);
+        navigate(`/docs/${created.id}`, { replace: true });
+        showToast('Document created.');
       } else {
         const updated = await updateBlogPost(postId, toSave);
-        setPost({ ...BLANK_POST, ...updated });
-        showToast(overrideStatus === 'published' ? 'Post published!' : 'Post saved.');
+        setPost({ ...BLANK_DOC, ...updated });
+        unpackMetadata(updated.json_ld);
+        showToast(overrideStatus === 'published' ? 'Document published!' : 'Document saved.');
       }
     } catch (err) {
       showToast(err.message, 'error');
@@ -241,18 +301,17 @@ const BlogEditor = () => {
     }
   };
 
-  const score     = calcAiReadiness(post);
-  const scoreColor = readinessColor(score);
-  const scoreLabel = readinessLabel(score);
-
   if (loading) {
     return (
       <div className="be-loading">
         <div className="be-spinner" />
-        <span>Loading post…</span>
+        <span>Loading document…</span>
       </div>
     );
   }
+
+  const wordCountVal = (post.content || '').replace(/<[^>]*>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
+  const readTimeMin = Math.max(1, Math.ceil(wordCountVal / 200));
 
   return (
     <div className="be-page">
@@ -260,11 +319,11 @@ const BlogEditor = () => {
 
       {/* Top bar */}
       <div className="be-topbar">
-        <button className="be-back-btn" onClick={() => navigate('/blog')}>
+        <button className="be-back-btn" onClick={() => navigate('/docs')}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
-          Blog
+          Guides
         </button>
         <div className="be-topbar-title">{post.title || '(Untitled)'}</div>
         <div className="be-topbar-actions">
@@ -308,10 +367,11 @@ const BlogEditor = () => {
                 onChange={(e) => handleTitleChange(e.target.value)}
               />
             </div>
+            
             <div className="be-field">
               <label className="be-label">Slug</label>
               <div className="be-slug-row">
-                <span className="be-slug-prefix">/blog/</span>
+                <span className="be-slug-prefix">/docs/</span>
                 <input
                   className={`be-input be-input--slug${slugWarning ? ' be-input--error' : ''}`}
                   type="text"
@@ -322,16 +382,69 @@ const BlogEditor = () => {
               </div>
               {slugWarning && <span className="be-slug-warning">{slugWarning}</span>}
             </div>
+
+            {/* Docs metadata selectors */}
+            <div className="de-meta-grid">
+              <div className="be-field" style={{ marginBottom: 0 }}>
+                <label className="be-label">Category</label>
+                <select
+                  className="be-select de-select"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                >
+                  {CATEGORIES.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="be-field" style={{ marginBottom: 0 }}>
+                <label className="be-label">Difficulty Level</label>
+                <div className="de-difficulty-row">
+                  {['Beginner', 'Intermediate', 'Advanced'].map(d => (
+                    <button
+                      key={d}
+                      type="button"
+                      className={`de-diff-btn de-diff-btn--${d.toLowerCase()}${difficulty === d ? ' de-diff-btn--active' : ''}`}
+                      onClick={() => setDifficulty(d)}
+                    >
+                      {d === 'Beginner' && <span className="de-diff-dot" style={{ background: '#3B82F6' }} />}
+                      {d === 'Intermediate' && <span className="de-diff-dot" style={{ background: '#F59E0B' }} />}
+                      {d === 'Advanced' && <span className="de-diff-dot" style={{ background: '#EF4444' }} />}
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="be-field" style={{ marginBottom: 0 }}>
+                <label className="be-label">Guide Type</label>
+                <button
+                  type="button"
+                  className={`de-toggle-row${isTroubleshooting ? ' de-toggle-row--on' : ''}`}
+                  onClick={() => setIsTroubleshooting(v => !v)}
+                >
+                  <div className="de-toggle-track">
+                    <div className="de-toggle-thumb" />
+                  </div>
+                  <span className="de-toggle-label">
+                    {isTroubleshooting ? 'Troubleshooting Guide' : 'Standard Guide'}
+                  </span>
+                </button>
+              </div>
+            </div>
+
             <div className="be-field">
               <label className="be-label">Content</label>
               <TipTapEditor key={post.id || 'new'} content={post.content} onChange={(html) => set('content', html)} />
             </div>
+
             <div className="be-field">
-              <label className="be-label">Excerpt <span className="be-label-hint">(shown on blog listing)</span></label>
+              <label className="be-label">Excerpt <span className="be-label-hint">(short summary shown in browse categories)</span></label>
               <textarea
                 className="be-textarea"
                 rows={3}
-                placeholder="Short summary of the post…"
+                placeholder="Short summary of the guide…"
                 value={post.excerpt}
                 onChange={(e) => set('excerpt', e.target.value)}
               />
@@ -345,8 +458,7 @@ const BlogEditor = () => {
             <div className="be-field">
               <label className="be-label">
                 Featured Image
-                <span className="be-label-required"> *</span>
-                <span className="be-label-hint"> — 1200×630 recommended (OG, Twitter card)</span>
+                <span className="be-label-hint"> — optional for documentation</span>
               </label>
               {post.featured_image_url ? (
                 <div className="be-img-preview-wrap">
@@ -368,10 +480,7 @@ const BlogEditor = () => {
               )}
             </div>
             <div className="be-field">
-              <label className="be-label">
-                Alt Text
-                <span className="be-label-hint"> — describes the image for accessibility &amp; SEO</span>
-              </label>
+              <label className="be-label">Alt Text</label>
               <input
                 className="be-input"
                 type="text"
@@ -421,9 +530,6 @@ const BlogEditor = () => {
                 value={post.meta_title}
                 onChange={(e) => set('meta_title', e.target.value)}
               />
-              {post.meta_title.length > 60 && (
-                <span className="be-field-warning">Title is too long — search engines may truncate it.</span>
-              )}
             </div>
 
             <div className="be-field">
@@ -440,9 +546,6 @@ const BlogEditor = () => {
                 value={post.meta_description}
                 onChange={(e) => set('meta_description', e.target.value)}
               />
-              {post.meta_description.length > 160 && (
-                <span className="be-field-warning">Description is too long — search engines may truncate it.</span>
-              )}
             </div>
 
             <div className="be-field">
@@ -450,24 +553,11 @@ const BlogEditor = () => {
               <input
                 className="be-input"
                 type="text"
-                placeholder="e.g. artificial intelligence news"
+                placeholder="e.g. support guide"
                 value={post.focus_keyword}
                 onChange={(e) => set('focus_keyword', e.target.value)}
               />
-              <span className="be-field-hint">The primary keyword this post should rank for.</span>
             </div>
-
-            {/* SERP preview */}
-            {(post.meta_title || post.title) && (
-              <div className="be-serp-preview">
-                <div className="be-serp-label">SERP Preview</div>
-                <div className="be-serp-box">
-                  <div className="be-serp-url">21news.in › blog › {post.slug || 'post-slug'}</div>
-                  <div className="be-serp-title">{post.meta_title || post.title}</div>
-                  <div className="be-serp-desc">{post.meta_description || 'No meta description set.'}</div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -477,12 +567,12 @@ const BlogEditor = () => {
             <div className="be-sd-header">
               <div>
                 <h3 className="be-sd-title">JSON-LD Structured Data</h3>
-                <p className="be-sd-subtitle">Auto-generated from your post fields. Read-only — update fields in other tabs to refine.</p>
+                <p className="be-sd-subtitle">Documentation metadata and schema.</p>
               </div>
-              <span className="be-sd-badge">BlogPosting Schema</span>
+              <span className="be-sd-badge">TechArticle Schema</span>
             </div>
             <pre className="be-sd-preview">
-              {JSON.stringify(generateBlogJsonLd(post), null, 2)}
+              {JSON.stringify(packMetadata(post), null, 2)}
             </pre>
           </div>
         )}
@@ -490,37 +580,6 @@ const BlogEditor = () => {
         {/* ── AI Optimization ─────────────────────────────────────────────── */}
         {activeTab === 'ai' && (
           <div className="be-tab-content">
-            {/* Readiness score */}
-            <div className="be-ai-score-card">
-              <div className="be-ai-score-ring" style={{ '--score-color': scoreColor }}>
-                <svg viewBox="0 0 80 80" className="be-ai-score-svg">
-                  <circle cx="40" cy="40" r="34" fill="none" stroke="#e2e8f0" strokeWidth="7"/>
-                  <circle
-                    cx="40" cy="40" r="34" fill="none"
-                    stroke={scoreColor} strokeWidth="7"
-                    strokeDasharray={`${(score / 100) * 213.6} 213.6`}
-                    strokeLinecap="round"
-                    transform="rotate(-90 40 40)"
-                  />
-                </svg>
-                <div className="be-ai-score-text">
-                  <span className="be-ai-score-num" style={{ color: scoreColor }}>{score}</span>
-                  <span className="be-ai-score-of">/100</span>
-                </div>
-              </div>
-              <div className="be-ai-score-info">
-                <div className="be-ai-score-label" style={{ color: scoreColor }}>{scoreLabel}</div>
-                <div className="be-ai-score-breakdown">
-                  <ScoreRow label="Meta title" done={!!post.meta_title?.trim()} pts={10} />
-                  <ScoreRow label="Meta description" done={!!post.meta_description?.trim()} pts={20} />
-                  <ScoreRow label="Focus keyword" done={!!post.focus_keyword?.trim()} pts={10} />
-                  <ScoreRow label="Content ≥ 300 words" done={wordCount(post.content) >= 300} pts={20} />
-                  <ScoreRow label="Featured image + alt text" done={!!post.featured_image_url?.trim() && !!post.featured_image_alt?.trim()} pts={20} />
-                  <ScoreRow label="FAQ section" done={post.faq_pairs?.length > 0} pts={20} />
-                </div>
-              </div>
-            </div>
-
             {/* FAQ Generator */}
             <div className="be-ai-section">
               <div className="be-ai-section-header">
@@ -559,33 +618,29 @@ const BlogEditor = () => {
                       </button>
                     </div>
                     <div className="be-field" style={{ gap: '4px' }}>
-                      <label className="be-label" style={{ fontSize: '11px', color: '#64748B', fontWeight: 'bold', textTransform: 'uppercase' }}>Question</label>
+                      <label className="be-label" style={{ fontSize: '11px', color: '#64748B', fontWeight: 'bold' }}>Question</label>
                       <input
                         type="text"
                         className="be-input"
-                        style={{ fontSize: '13px', padding: '8px 12px' }}
                         value={faq.question || ''}
                         onChange={(e) => {
                           const updated = [...post.faq_pairs];
                           updated[i] = { ...updated[i], question: e.target.value };
                           set('faq_pairs', updated);
                         }}
-                        placeholder="e.g., What is Agentic AI?"
                       />
                     </div>
                     <div className="be-field" style={{ gap: '4px' }}>
-                      <label className="be-label" style={{ fontSize: '11px', color: '#64748B', fontWeight: 'bold', textTransform: 'uppercase' }}>Answer</label>
+                      <label className="be-label" style={{ fontSize: '11px', color: '#64748B', fontWeight: 'bold' }}>Answer</label>
                       <textarea
                         className="be-textarea"
                         rows={2}
-                        style={{ fontSize: '13px', padding: '8px 12px' }}
                         value={faq.answer || ''}
                         onChange={(e) => {
                           const updated = [...post.faq_pairs];
                           updated[i] = { ...updated[i], answer: e.target.value };
                           set('faq_pairs', updated);
                         }}
-                        placeholder="e.g., Agentic AI refers to autonomous systems..."
                       />
                     </div>
                   </div>
@@ -594,15 +649,7 @@ const BlogEditor = () => {
                 <button
                   type="button"
                   className="be-ai-btn"
-                  style={{ 
-                    marginTop: '8px', 
-                    alignSelf: 'flex-start', 
-                    background: '#F1F5F9', 
-                    color: '#475569', 
-                    border: '1.5px solid #E2E8F0', 
-                    boxShadow: 'none',
-                    fontWeight: '700'
-                  }}
+                  style={{ marginTop: '8px', background: '#F1F5F9', color: '#475569', border: '1.5px solid #E2E8F0', boxShadow: 'none' }}
                   onClick={() => {
                     const updated = [...(post.faq_pairs || []), { question: '', answer: '' }];
                     set('faq_pairs', updated);
@@ -630,16 +677,12 @@ const BlogEditor = () => {
               </div>
               {summaryResult !== '' && (
                 <div className="be-summary-result" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div className="be-field" style={{ gap: '6px' }}>
-                    <label className="be-label" style={{ fontSize: '12px', color: '#166534', fontWeight: '700' }}>Edit / Preview Summary Excerpt</label>
-                    <textarea
-                      className="be-textarea"
-                      rows={3}
-                      style={{ fontSize: '13px', padding: '10px 12px', borderColor: '#BBF7D0', color: '#14532D', background: '#FFFFFF' }}
-                      value={summaryResult}
-                      onChange={(e) => setSummaryResult(e.target.value)}
-                    />
-                  </div>
+                  <textarea
+                    className="be-textarea"
+                    rows={3}
+                    value={summaryResult}
+                    onChange={(e) => setSummaryResult(e.target.value)}
+                  />
                   <button
                     className="be-use-excerpt-btn"
                     onClick={() => { set('excerpt', summaryResult); setSummaryResult(''); showToast('Excerpt updated.'); }}
@@ -649,118 +692,101 @@ const BlogEditor = () => {
                 </div>
               )}
             </div>
-
-            {/* Entity detection placeholder */}
-            <div className="be-ai-section">
-              <div className="be-ai-section-header">
-                <div>
-                  <h4 className="be-ai-section-title">Entity Detection</h4>
-                  <p className="be-ai-section-desc">Named entities found in your content (people, organisations, locations).</p>
-                </div>
-              </div>
-              <div className="be-entity-placeholder">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                Entity detection coming soon. Write or paste your content to analyse.
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Analytics ───────────────────────────────────────────────────── */}
-        {activeTab === 'analytics' && (
-          <div className="be-tab-content">
-            <div className="be-analytics-placeholder">
-              <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10"/>
-                <line x1="12" y1="20" x2="12" y2="4"/>
-                <line x1="6"  y1="20" x2="6"  y2="14"/>
-              </svg>
-              <h3>Analytics available after publishing</h3>
-              <p>Views and Google Search Console data (impressions, clicks, average position) will appear here once the post is published and indexed.</p>
-            </div>
           </div>
         )}
 
         {/* ── Publishing ──────────────────────────────────────────────────── */}
         {activeTab === 'publishing' && (
           <div className="be-tab-content">
+
+            {/* Status — visual radio cards */}
             <div className="be-field">
-              <label className="be-label">Status</label>
-              <select
-                className="be-select"
-                value={post.status}
-                onChange={(e) => set('status', e.target.value)}
-              >
-                <option value="draft">Draft</option>
-                <option value="pending_review">Pending Review</option>
-                <option value="approved">Approved</option>
-                <option value="published">Published</option>
-                <option value="scheduled">Scheduled</option>
-              </select>
+              <label className="be-label">Document Status</label>
+              <div className="de-status-grid">
+                {[
+                  { value: 'draft',          label: 'Draft',          desc: 'Private — not visible',        icon: '✏️',  color: '#64748B', bg: '#F8FAFC',  border: '#CBD5E1' },
+                  { value: 'pending_review', label: 'Pending Review', desc: 'Waiting for editor approval',  icon: '🕐', color: '#7C3AED', bg: '#FAF5FF',  border: '#C4B5FD' },
+                  { value: 'approved',       label: 'Approved',       desc: 'Ready — not yet live',         icon: '✅',  color: '#D97706', bg: '#FFFBEB',  border: '#FCD34D' },
+                  { value: 'published',      label: 'Published',      desc: 'Live and visible to readers',  icon: '🌐',  color: '#059669', bg: '#ECFDF5',  border: '#6EE7B7' },
+                ].map(s => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    className={`de-status-card${post.status === s.value ? ' de-status-card--active' : ''}`}
+                    style={post.status === s.value ? { background: s.bg, borderColor: s.border } : {}}
+                    onClick={() => set('status', s.value)}
+                  >
+                    <span className="de-status-card-icon">{s.icon}</span>
+                    <span className="de-status-card-label" style={post.status === s.value ? { color: s.color } : {}}>
+                      {s.label}
+                    </span>
+                    <span className="de-status-card-desc">{s.desc}</span>
+                    {post.status === s.value && (
+                      <span className="de-status-card-check" style={{ background: s.color }}>
+                        <svg width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="2 6 5 9 10 3"/>
+                        </svg>
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {post.status === 'scheduled' && (
-              <div className="be-field">
-                <label className="be-label">Scheduled Publish Date</label>
-                <input
-                  className="be-input"
-                  type="datetime-local"
-                  value={post.scheduled_publish_at ? post.scheduled_publish_at.slice(0, 16) : ''}
-                  onChange={(e) => set('scheduled_publish_at', e.target.value ? new Date(e.target.value).toISOString() : null)}
-                />
-              </div>
-            )}
-
-            {post.published_at && (
-              <div className="be-field">
-                <label className="be-label">Published At</label>
-                <input
-                  className="be-input"
-                  type="text"
-                  readOnly
-                  value={new Date(post.published_at).toLocaleString('en-IN')}
-                />
-              </div>
-            )}
-
-            <div className="be-field">
-              <label className="be-label">Canonical URL <span className="be-label-hint">(leave blank to use default)</span></label>
-              <input
-                className="be-input"
-                type="url"
-                placeholder="https://21news.in/blog/post-slug"
-                value={post.canonical_url || ''}
-                onChange={(e) => set('canonical_url', e.target.value)}
-              />
-            </div>
-
+            {/* Author */}
             <div className="be-field">
               <label className="be-label">Author</label>
-              <input
-                className="be-input"
-                type="text"
-                placeholder="Author name"
-                value={post.author}
-                onChange={(e) => set('author', e.target.value)}
-              />
+              <div className="de-author-wrap">
+                <div className="de-author-avatar">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </div>
+                <input
+                  className="be-input de-author-input"
+                  type="text"
+                  placeholder="Author name or team"
+                  value={post.author}
+                  onChange={(e) => set('author', e.target.value)}
+                />
+              </div>
             </div>
 
-            <div className="be-publish-checklist">
-              <div className="be-checklist-title">Publish Checklist</div>
-              <ChecklistItem ok={!!post.featured_image_url} label="Featured image uploaded" required />
-              <ChecklistItem ok={!!post.meta_description} label="Meta description filled" required />
-              <ChecklistItem ok={!!post.meta_title} label="Meta title filled" />
-              <ChecklistItem ok={!!post.focus_keyword} label="Focus keyword set" />
-              <ChecklistItem ok={wordCount(post.content) >= 300} label="Content ≥ 300 words" />
-              <ChecklistItem ok={post.faq_pairs?.length > 0} label="FAQ section generated" />
+            {/* Calculated Stats panel */}
+            <div className="de-stats-panel">
+              <div className="de-stats-panel-header">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+                Content Stats
+              </div>
+              <div className="de-stats-grid">
+                <div className="de-stat-item">
+                  <span className="de-stat-label">Word Count</span>
+                  <span className="de-stat-value">{wordCountVal.toLocaleString()}</span>
+                </div>
+                <div className="de-stat-item">
+                  <span className="de-stat-label">Reading Time</span>
+                  <span className="de-stat-value de-stat-value--accent">{readTimeMin} min</span>
+                </div>
+                <div className="de-stat-item">
+                  <span className="de-stat-label">Difficulty</span>
+                  <span className={`de-stat-badge de-stat-badge--${difficulty.toLowerCase()}`}>{difficulty}</span>
+                </div>
+                <div className="de-stat-item">
+                  <span className="de-stat-label">Category</span>
+                  <span className="de-stat-category" title={category}>{category}</span>
+                </div>
+              </div>
             </div>
 
-            <div className="be-publish-actions">
+            <div className="be-publish-actions" style={{ marginTop: '24px' }}>
               <button className="be-draft-btn" onClick={() => savePost('draft')} disabled={saving}>
                 Save as Draft
               </button>
               <button className="be-publish-btn" onClick={() => savePost('published')} disabled={saving}>
-                {saving ? 'Publishing…' : 'Publish Now'}
+                {saving ? 'Publishing…' : 'Publish Guide'}
               </button>
             </div>
           </div>
@@ -771,32 +797,4 @@ const BlogEditor = () => {
   );
 };
 
-/* Helper sub-components */
-const wordCount = (html) =>
-  (html || '').replace(/<[^>]*>/g, ' ').trim().split(/\s+/).filter(Boolean).length;
-
-const ScoreRow = ({ label, done, pts }) => (
-  <div className="be-score-row">
-    <span className={`be-score-check${done ? ' done' : ''}`}>
-      {done
-        ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      }
-    </span>
-    <span className="be-score-label">{label}</span>
-    <span className="be-score-pts">+{pts}</span>
-  </div>
-);
-
-const ChecklistItem = ({ ok, label, required }) => (
-  <div className={`be-checklist-item${ok ? ' ok' : required ? ' missing-required' : ' missing'}`}>
-    {ok
-      ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={required ? '#dc2626' : '#f59e0b'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-    }
-    <span>{label}</span>
-    {required && !ok && <span className="be-required-tag">Required</span>}
-  </div>
-);
-
-export default BlogEditor;
+export default DocEditor;
