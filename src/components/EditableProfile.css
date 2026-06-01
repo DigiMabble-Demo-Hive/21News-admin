@@ -129,6 +129,22 @@
   margin-bottom: 16px;
 }
 
+.ep-section-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: -8px 0 14px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.ep-section-hint code {
+  font-size: 11px;
+  background: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #475569;
+  font-family: monospace;
+}
+
 .ep-section-header .ep-section-title {
   margin-bottom: 0;
 }

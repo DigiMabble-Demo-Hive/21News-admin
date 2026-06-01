@@ -749,6 +749,7 @@ const OrganizationProfile = () => {
   const [bannerFullUrl,      setBannerFullUrl]      = useState(null);
   const [bannerCroppedUrl,   setBannerCroppedUrl]   = useState(null);
   const [entityCardUrl,      setEntityCardUrl]      = useState(null);
+  const [enrichForm,         setEnrichForm]         = useState({});
   const [enrichedData,       setEnrichedData]       = useState({
     news: [], reviews: [], publications: [],
     specializations: [], locations: [], similarOrgs: [],
@@ -758,8 +759,13 @@ const OrganizationProfile = () => {
   });
   const { toasts, toast, dismiss } = useToast();
 
-  const diffInputRef    = useRef(null);
-  const trustedInputRef = useRef(null);
+  const diffInputRef        = useRef(null);
+  const trustedInputRef     = useRef(null);
+  const specInputRef        = useRef(null);
+  const keyFeatInputRef     = useRef(null);
+  const awardsInputRef      = useRef(null);
+  const phoneInputRef       = useRef(null);
+  const contactEmailInputRef= useRef(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -1033,6 +1039,35 @@ const OrganizationProfile = () => {
       })(),
     });
     setSaveError('');
+    setEnrichForm({
+      specializations: [...(enrichedData.specializations || [])],
+      products: (enrichedData.products || []).map(p => ({ name: p.name || '', description: p.description || '' })),
+      keyFeatures: [...(enrichedData.keyFeatures || [])],
+      siteAwards: [...(enrichedData.siteAwards || [])],
+      publications: (enrichedData.publications || []).map(p => ({
+        publication_title: p.publication_title || '',
+        publication_url:   p.publication_url   || '',
+        abstract_snippet:  p.abstract_snippet  || '',
+        publication_year:  p.publication_year  || '',
+      })),
+      news: (enrichedData.news || []).map(a => ({ title: a.title || '', url: a.url || '', source: a.source || '' })),
+      reviews: (enrichedData.reviews || []).map(r => ({
+        source_platform: r.source_platform || '',
+        rating:          String(r.rating   || ''),
+        review_count:    String(r.review_count || ''),
+        review_snippet:  r.review_snippet  || '',
+        review_url:      r.review_url      || '',
+      })),
+      locations: (enrichedData.locations || []).map(l => ({
+        city:        l.parsed?.city || l.city || '',
+        country:     l.parsed?.countryFull || l.parsed?.country || l.country || '',
+        headquarter: l.headquarter === true || l.headquarter === 'true',
+      })),
+      contactHq:         enrichedData.contactInfo?.headquarters       || '',
+      contactSupportUrl: enrichedData.contactInfo?.support_portal_url || '',
+      contactPhones:   [...(enrichedData.contactInfo?.phone_numbers  || [])],
+      contactEmails:   [...(enrichedData.contactInfo?.contact_emails || [])],
+    });
     setIsEditing(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -1040,6 +1075,7 @@ const OrganizationProfile = () => {
   const handleCancel = () => {
     setIsEditing(false);
     setForm({});
+    setEnrichForm({});
     setSaveError('');
   };
 
@@ -1091,6 +1127,66 @@ const OrganizationProfile = () => {
         table:      'organization_details',
       });
 
+      // ── Save enrichment data ──
+      // Specializations + Locations → org_linkedin_data
+      const { data: liRow } = await supabase.from('org_linkedin_data').select('raw_data').eq('user_id', profile.user_id).maybeSingle();
+      let existingLi = liRow?.raw_data || {};
+      if (typeof existingLi === 'string') { try { existingLi = JSON.parse(existingLi); } catch { existingLi = {}; } }
+      await supabase.from('org_linkedin_data').upsert({
+        user_id: profile.user_id,
+        raw_data: {
+          ...existingLi,
+          specialities: (enrichForm.specializations || []).filter(Boolean),
+          locations: (enrichForm.locations || []).filter(l => l.city || l.country).map(l => ({
+            city: l.city, country: l.country, headquarter: l.headquarter,
+            parsed: { city: l.city, country: l.country, countryFull: l.country },
+          })),
+        },
+      }, { onConflict: 'user_id' });
+
+      // Products + Key Features + Awards + Contact → organization_site_dump
+      const { data: sdRow } = await supabase.from('organization_site_dump').select('company_data').eq('user_id', profile.user_id).maybeSingle();
+      const existingSd = sdRow?.company_data || {};
+      await supabase.from('organization_site_dump').upsert({
+        user_id: profile.user_id,
+        company_name: orgFields.organization_name,
+        company_data: {
+          ...existingSd,
+          offerings: { ...(existingSd.offerings || {}), products_services: (enrichForm.products || []).filter(p => p.name), key_features: (enrichForm.keyFeatures || []).filter(Boolean) },
+          authority_and_trust: { ...(existingSd.authority_and_trust || {}), awards_certifications: (enrichForm.siteAwards || []).filter(Boolean) },
+          presence_and_contact: { ...(existingSd.presence_and_contact || {}), headquarters: enrichForm.contactHq, support_portal_url: enrichForm.contactSupportUrl, phone_numbers: (enrichForm.contactPhones || []).filter(Boolean), contact_emails: (enrichForm.contactEmails || []).filter(Boolean) },
+        },
+      }, { onConflict: 'user_id' });
+
+      // News → org_news_articles
+      await supabase.from('org_news_articles').delete().eq('user_id', profile.user_id);
+      const validNews = (enrichForm.news || []).filter(a => a.title && a.url);
+      if (validNews.length > 0) await supabase.from('org_news_articles').insert(validNews.map(a => ({ user_id: profile.user_id, title: a.title, url: a.url, source: a.source })));
+
+      // Publications → org_publications
+      await supabase.from('org_publications').delete().eq('user_id', profile.user_id);
+      const validPubs = (enrichForm.publications || []).filter(p => p.publication_title);
+      if (validPubs.length > 0) await supabase.from('org_publications').insert(validPubs.map(p => ({ ...p, user_id: profile.user_id, organization_name: orgFields.organization_name })));
+
+      // Reviews → org_reviews
+      await supabase.from('org_reviews').delete().eq('user_id', profile.user_id);
+      const validReviews = (enrichForm.reviews || []).filter(r => r.source_platform && r.rating);
+      if (validReviews.length > 0) await supabase.from('org_reviews').insert(validReviews.map(r => ({ ...r, user_id: profile.user_id, rating: Number(r.rating) || 0, review_count: r.review_count ? Number(r.review_count) : null })));
+
+      // Refresh enrichedData from saved values
+      setEnrichedData(prev => ({
+        ...prev,
+        specializations: enrichForm.specializations,
+        products: enrichForm.products,
+        keyFeatures: enrichForm.keyFeatures,
+        siteAwards: enrichForm.siteAwards,
+        publications: enrichForm.publications,
+        news: enrichForm.news,
+        reviews: enrichForm.reviews,
+        locations: enrichForm.locations,
+        contactInfo: { headquarters: enrichForm.contactHq, support_portal_url: enrichForm.contactSupportUrl, phone_numbers: enrichForm.contactPhones, contact_emails: enrichForm.contactEmails },
+      }));
+
       setProfile((prev) => ({
         ...prev,
         ...orgFields,
@@ -1098,6 +1194,7 @@ const OrganizationProfile = () => {
       }));
       setIsEditing(false);
       setForm({});
+      setEnrichForm({});
       toast('Profile updated successfully', 'success');
     } catch (err) {
       setSaveError(err.message || 'Failed to save changes');
@@ -1525,10 +1622,33 @@ const OrganizationProfile = () => {
       {/* ════════════════════════════════════════════════
           ENRICHMENT — Specialization Tags
           ════════════════════════════════════════════════ */}
-      {!isEditing && <SpecializationTags tags={enrichedData.specializations} />}
+      {isEditing ? (
+        <section className="op-section op-tags-section op-reveal op-edit-section-wrap">
+          <div className="op-container">
+            <div className="op-section-edit-title-row">
+              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Specializations</h2>
+              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+            </div>
+            <div className="op-tags-wrap" style={{ marginBottom: 12 }}>
+              {(enrichForm.specializations || []).map((tag, i) => (
+                <span key={i} className="op-trusted-edit-chip">
+                  {tag}<button onClick={() => setEnrichForm(p => ({ ...p, specializations: p.specializations.filter((_, idx) => idx !== i) }))}>&times;</button>
+                </span>
+              ))}
+            </div>
+            <div className="op-trusted-add-row">
+              <input ref={specInputRef} placeholder="e.g. Machine Learning, SaaS…" onKeyDown={e => { if (e.key === 'Enter') { const v = specInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, specializations: [...(p.specializations || []), v] })); specInputRef.current.value = ''; } } }} />
+              <button onClick={() => { const v = specInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, specializations: [...(p.specializations || []), v] })); specInputRef.current.value = ''; } }}>+ Add</button>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <SpecializationTags tags={enrichedData.specializations} />
+      )}
 
       {/* ════════════════════════════════════════════════
-          ENRICHMENT — Trusted Parties (consolidated)
+          ENRICHMENT — Trusted Parties (consolidated, display only)
+          Edit via "Trusted By" section below when isEditing
           ════════════════════════════════════════════════ */}
       {!isEditing && (
         <TrustedPartiesSection
@@ -1628,44 +1748,255 @@ const OrganizationProfile = () => {
       {/* ════════════════════════════════════════════════
           ENRICHMENT — Products & Offerings
           ════════════════════════════════════════════════ */}
-      {!isEditing && (
-        <ProductsSection
-          products={enrichedData.products}
-          keyFeatures={enrichedData.keyFeatures}
-          pricingUrls={enrichedData.pricingUrls}
-          techStack={enrichedData.techStack}
-        />
+      {isEditing ? (
+        <section className="op-section op-products-section op-reveal op-edit-section-wrap">
+          <div className="op-container">
+            <div className="op-section-edit-title-row">
+              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Products &amp; Offerings</h2>
+              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+            </div>
+            <div className="op-edit-cards">
+              {(enrichForm.products || []).map((p, i) => (
+                <div key={i} className="op-edit-card">
+                  <button className="op-edit-card-remove" onClick={() => setEnrichForm(prev => ({ ...prev, products: prev.products.filter((_, idx) => idx !== i) }))}>&times;</button>
+                  <div className="op-inline-grid">
+                    <div className="op-inline-field op-inline-grid--full">
+                      <label className="op-inline-label">Product / Service Name</label>
+                      <input className="op-inline-input" value={p.name} onChange={e => setEnrichForm(prev => { const a = [...prev.products]; a[i] = { ...a[i], name: e.target.value }; return { ...prev, products: a }; })} placeholder="e.g. Analytics Suite" />
+                    </div>
+                    <div className="op-inline-field op-inline-grid--full">
+                      <label className="op-inline-label">Description</label>
+                      <textarea className="op-inline-textarea" rows={2} value={p.description} onChange={e => setEnrichForm(prev => { const a = [...prev.products]; a[i] = { ...a[i], description: e.target.value }; return { ...prev, products: a }; })} placeholder="What this product does…" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button className="op-edit-add-btn" onClick={() => setEnrichForm(p => ({ ...p, products: [...(p.products || []), { name: '', description: '' }] }))}>+ Add Product</button>
+            <div style={{ marginTop: 16 }}>
+              <label className="op-inline-label" style={{ display: 'block', marginBottom: 8 }}>Key Features</label>
+              <div className="op-tags-wrap" style={{ marginBottom: 8 }}>
+                {(enrichForm.keyFeatures || []).map((f, i) => (
+                  <span key={i} className="op-trusted-edit-chip">{f}<button onClick={() => setEnrichForm(p => ({ ...p, keyFeatures: p.keyFeatures.filter((_, idx) => idx !== i) }))}>&times;</button></span>
+                ))}
+              </div>
+              <div className="op-trusted-add-row">
+                <input ref={keyFeatInputRef} placeholder="e.g. Real-time dashboards…" onKeyDown={e => { if (e.key === 'Enter') { const v = keyFeatInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, keyFeatures: [...(p.keyFeatures || []), v] })); keyFeatInputRef.current.value = ''; } } }} />
+                <button onClick={() => { const v = keyFeatInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, keyFeatures: [...(p.keyFeatures || []), v] })); keyFeatInputRef.current.value = ''; } }}>+ Add</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <ProductsSection products={enrichedData.products} keyFeatures={enrichedData.keyFeatures} pricingUrls={enrichedData.pricingUrls} techStack={enrichedData.techStack} />
       )}
 
       {/* ════════════════════════════════════════════════
           ENRICHMENT — News & Press
           ════════════════════════════════════════════════ */}
-      {!isEditing && <NewsAndPress articles={enrichedData.news} />}
+      {isEditing ? (
+        <section className="op-section op-news-section op-reveal op-edit-section-wrap">
+          <div className="op-container">
+            <div className="op-section-edit-title-row">
+              <h2 className="op-section-title" style={{ marginBottom: 0 }}>News &amp; Press Articles</h2>
+              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+            </div>
+            <div className="op-edit-cards">
+              {(enrichForm.news || []).map((a, i) => (
+                <div key={i} className="op-edit-card">
+                  <button className="op-edit-card-remove" onClick={() => setEnrichForm(p => ({ ...p, news: p.news.filter((_, idx) => idx !== i) }))}>&times;</button>
+                  <div className="op-inline-grid">
+                    <div className="op-inline-field op-inline-grid--full">
+                      <label className="op-inline-label">Headline</label>
+                      <input className="op-inline-input" value={a.title} onChange={e => setEnrichForm(p => { const arr = [...p.news]; arr[i] = { ...arr[i], title: e.target.value }; return { ...p, news: arr }; })} placeholder="Article headline…" />
+                    </div>
+                    <div className="op-inline-field">
+                      <label className="op-inline-label">URL</label>
+                      <input className="op-inline-input" type="url" value={a.url} onChange={e => setEnrichForm(p => { const arr = [...p.news]; arr[i] = { ...arr[i], url: e.target.value }; return { ...p, news: arr }; })} placeholder="https://…" />
+                    </div>
+                    <div className="op-inline-field">
+                      <label className="op-inline-label">Source / Publication</label>
+                      <input className="op-inline-input" value={a.source} onChange={e => setEnrichForm(p => { const arr = [...p.news]; arr[i] = { ...arr[i], source: e.target.value }; return { ...p, news: arr }; })} placeholder="e.g. TechCrunch" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button className="op-edit-add-btn" onClick={() => setEnrichForm(p => ({ ...p, news: [...(p.news || []), { title: '', url: '', source: '' }] }))}>+ Add Article</button>
+          </div>
+        </section>
+      ) : (
+        <NewsAndPress articles={enrichedData.news} />
+      )}
 
       {/* ════════════════════════════════════════════════
           ENRICHMENT — Reviews & Ratings
           ════════════════════════════════════════════════ */}
-      {!isEditing && <ReviewsAndRatings reviews={enrichedData.reviews} />}
+      {isEditing ? (
+        <section className="op-section op-reviews-section op-reveal op-edit-section-wrap">
+          <div className="op-container">
+            <div className="op-section-edit-title-row">
+              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Reviews &amp; Ratings</h2>
+              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+            </div>
+            <div className="op-edit-cards">
+              {(enrichForm.reviews || []).map((r, i) => (
+                <div key={i} className="op-edit-card">
+                  <button className="op-edit-card-remove" onClick={() => setEnrichForm(p => ({ ...p, reviews: p.reviews.filter((_, idx) => idx !== i) }))}>&times;</button>
+                  <div className="op-inline-grid">
+                    <div className="op-inline-field">
+                      <label className="op-inline-label">Platform</label>
+                      <input className="op-inline-input" value={r.source_platform} onChange={e => setEnrichForm(p => { const a = [...p.reviews]; a[i] = { ...a[i], source_platform: e.target.value }; return { ...p, reviews: a }; })} placeholder="e.g. G2, Glassdoor" />
+                    </div>
+                    <div className="op-inline-field">
+                      <label className="op-inline-label">Rating (0–5)</label>
+                      <input className="op-inline-input" type="number" step="0.1" min="0" max="5" value={r.rating} onChange={e => setEnrichForm(p => { const a = [...p.reviews]; a[i] = { ...a[i], rating: e.target.value }; return { ...p, reviews: a }; })} placeholder="4.5" />
+                    </div>
+                    <div className="op-inline-field">
+                      <label className="op-inline-label">Review Count</label>
+                      <input className="op-inline-input" type="number" value={r.review_count} onChange={e => setEnrichForm(p => { const a = [...p.reviews]; a[i] = { ...a[i], review_count: e.target.value }; return { ...p, reviews: a }; })} placeholder="e.g. 230" />
+                    </div>
+                    <div className="op-inline-field">
+                      <label className="op-inline-label">Review Page URL</label>
+                      <input className="op-inline-input" type="url" value={r.review_url} onChange={e => setEnrichForm(p => { const a = [...p.reviews]; a[i] = { ...a[i], review_url: e.target.value }; return { ...p, reviews: a }; })} placeholder="https://…" />
+                    </div>
+                    <div className="op-inline-field op-inline-grid--full">
+                      <label className="op-inline-label">Snippet</label>
+                      <textarea className="op-inline-textarea" rows={2} value={r.review_snippet} onChange={e => setEnrichForm(p => { const a = [...p.reviews]; a[i] = { ...a[i], review_snippet: e.target.value }; return { ...p, reviews: a }; })} placeholder="A short excerpt from reviews…" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button className="op-edit-add-btn" onClick={() => setEnrichForm(p => ({ ...p, reviews: [...(p.reviews || []), { source_platform: '', rating: '', review_count: '', review_snippet: '', review_url: '' }] }))}>+ Add Review</button>
+          </div>
+        </section>
+      ) : (
+        <ReviewsAndRatings reviews={enrichedData.reviews} />
+      )}
 
       {/* ════════════════════════════════════════════════
           ENRICHMENT — Awards & Recognition
           ════════════════════════════════════════════════ */}
-      {!isEditing && <AwardsSection awards={enrichedData.siteAwards} />}
+      {isEditing ? (
+        <section className="op-section op-awards-section op-reveal op-edit-section-wrap">
+          <div className="op-container">
+            <div className="op-section-edit-title-row">
+              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Awards &amp; Recognition</h2>
+              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+            </div>
+            <div className="op-edit-cards">
+              {(enrichForm.siteAwards || []).map((award, i) => (
+                <div key={i} className="op-edit-card" style={{ padding: '10px 44px 10px 14px' }}>
+                  <button className="op-edit-card-remove" onClick={() => setEnrichForm(p => ({ ...p, siteAwards: p.siteAwards.filter((_, idx) => idx !== i) }))}>&times;</button>
+                  <input className="op-inline-input" value={award} onChange={e => setEnrichForm(p => { const a = [...p.siteAwards]; a[i] = e.target.value; return { ...p, siteAwards: a }; })} placeholder="e.g. Best SaaS Product 2024 on G2" />
+                </div>
+              ))}
+            </div>
+            <div className="op-trusted-add-row">
+              <input ref={awardsInputRef} placeholder="e.g. Forbes 30 Under 30 on Forbes 2023…" onKeyDown={e => { if (e.key === 'Enter') { const v = awardsInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, siteAwards: [...(p.siteAwards || []), v] })); awardsInputRef.current.value = ''; } } }} />
+              <button onClick={() => { const v = awardsInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, siteAwards: [...(p.siteAwards || []), v] })); awardsInputRef.current.value = ''; } }}>+ Add</button>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <AwardsSection awards={enrichedData.siteAwards} />
+      )}
 
-      {/* ════════════════════════════════════════════════
-          ENRICHMENT — Investor Intelligence
-          ════════════════════════════════════════════════ */}
+      {/* Investor Intelligence — display-only (auto-scraped) */}
       {!isEditing && <InvestorIntelligenceSection sources={enrichedData.investorSources} />}
 
       {/* ════════════════════════════════════════════════
           ENRICHMENT — Publications
           ════════════════════════════════════════════════ */}
-      {!isEditing && <PublicationsSection pubs={enrichedData.publications} />}
+      {isEditing ? (
+        <section className="op-section op-pubs-section op-reveal op-edit-section-wrap">
+          <div className="op-container">
+            <div className="op-section-edit-title-row">
+              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Publications &amp; Resources</h2>
+              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+            </div>
+            <div className="op-edit-cards">
+              {(enrichForm.publications || []).map((p, i) => (
+                <div key={i} className="op-edit-card">
+                  <button className="op-edit-card-remove" onClick={() => setEnrichForm(prev => ({ ...prev, publications: prev.publications.filter((_, idx) => idx !== i) }))}>&times;</button>
+                  <div className="op-inline-grid">
+                    <div className="op-inline-field op-inline-grid--full">
+                      <label className="op-inline-label">Title</label>
+                      <input className="op-inline-input" value={p.publication_title} onChange={e => setEnrichForm(prev => { const a = [...prev.publications]; a[i] = { ...a[i], publication_title: e.target.value }; return { ...prev, publications: a }; })} placeholder="Publication title…" />
+                    </div>
+                    <div className="op-inline-field">
+                      <label className="op-inline-label">URL</label>
+                      <input className="op-inline-input" type="url" value={p.publication_url} onChange={e => setEnrichForm(prev => { const a = [...prev.publications]; a[i] = { ...a[i], publication_url: e.target.value }; return { ...prev, publications: a }; })} placeholder="https://…" />
+                    </div>
+                    <div className="op-inline-field">
+                      <label className="op-inline-label">Year</label>
+                      <input className="op-inline-input" value={p.publication_year} onChange={e => setEnrichForm(prev => { const a = [...prev.publications]; a[i] = { ...a[i], publication_year: e.target.value }; return { ...prev, publications: a }; })} placeholder="e.g. 2024" />
+                    </div>
+                    <div className="op-inline-field op-inline-grid--full">
+                      <label className="op-inline-label">Abstract / Snippet</label>
+                      <textarea className="op-inline-textarea" rows={2} value={p.abstract_snippet} onChange={e => setEnrichForm(prev => { const a = [...prev.publications]; a[i] = { ...a[i], abstract_snippet: e.target.value }; return { ...prev, publications: a }; })} placeholder="Brief summary…" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button className="op-edit-add-btn" onClick={() => setEnrichForm(p => ({ ...p, publications: [...(p.publications || []), { publication_title: '', publication_url: '', abstract_snippet: '', publication_year: '' }] }))}>+ Add Publication</button>
+          </div>
+        </section>
+      ) : (
+        <PublicationsSection pubs={enrichedData.publications} />
+      )}
 
       {/* ════════════════════════════════════════════════
           ENRICHMENT — Contact & Presence
           ════════════════════════════════════════════════ */}
-      {!isEditing && <ContactInfoSection contactInfo={enrichedData.contactInfo} mediaAndPress={enrichedData.mediaAndPress} />}
+      {isEditing ? (
+        <section className="op-section op-contact-section op-reveal op-edit-section-wrap">
+          <div className="op-container">
+            <div className="op-section-edit-title-row">
+              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Contact &amp; Presence</h2>
+              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+            </div>
+            <div className="op-inline-grid">
+              <div className="op-inline-field op-inline-grid--full">
+                <label className="op-inline-label">Headquarters Address</label>
+                <input className="op-inline-input" value={enrichForm.contactHq || ''} onChange={e => setEnrichForm(p => ({ ...p, contactHq: e.target.value }))} placeholder="e.g. 123 Main St, San Francisco, CA 94105" />
+              </div>
+              <div className="op-inline-field op-inline-grid--full">
+                <label className="op-inline-label">Support Portal URL</label>
+                <input className="op-inline-input" type="url" value={enrichForm.contactSupportUrl || ''} onChange={e => setEnrichForm(p => ({ ...p, contactSupportUrl: e.target.value }))} placeholder="https://support.example.com" />
+              </div>
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <label className="op-inline-label" style={{ display: 'block', marginBottom: 6 }}>Phone Numbers</label>
+              <div className="op-trusted-edit-wrap">
+                {(enrichForm.contactPhones || []).map((ph, i) => (
+                  <span key={i} className="op-trusted-edit-chip">{ph}<button onClick={() => setEnrichForm(p => ({ ...p, contactPhones: p.contactPhones.filter((_, idx) => idx !== i) }))}>&times;</button></span>
+                ))}
+              </div>
+              <div className="op-trusted-add-row">
+                <input ref={phoneInputRef} placeholder="+1 555 000 0000" onKeyDown={e => { if (e.key === 'Enter') { const v = phoneInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, contactPhones: [...(p.contactPhones || []), v] })); phoneInputRef.current.value = ''; } } }} />
+                <button onClick={() => { const v = phoneInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, contactPhones: [...(p.contactPhones || []), v] })); phoneInputRef.current.value = ''; } }}>+ Add</button>
+              </div>
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <label className="op-inline-label" style={{ display: 'block', marginBottom: 6 }}>Contact Emails</label>
+              <div className="op-trusted-edit-wrap">
+                {(enrichForm.contactEmails || []).map((em, i) => (
+                  <span key={i} className="op-trusted-edit-chip">{em}<button onClick={() => setEnrichForm(p => ({ ...p, contactEmails: p.contactEmails.filter((_, idx) => idx !== i) }))}>&times;</button></span>
+                ))}
+              </div>
+              <div className="op-trusted-add-row">
+                <input ref={contactEmailInputRef} type="email" placeholder="press@example.com" onKeyDown={e => { if (e.key === 'Enter') { const v = contactEmailInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, contactEmails: [...(p.contactEmails || []), v] })); contactEmailInputRef.current.value = ''; } } }} />
+                <button onClick={() => { const v = contactEmailInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, contactEmails: [...(p.contactEmails || []), v] })); contactEmailInputRef.current.value = ''; } }}>+ Add</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <ContactInfoSection contactInfo={enrichedData.contactInfo} mediaAndPress={enrichedData.mediaAndPress} />
+      )}
 
       {/* ════════════════════════════════════════════════
           SECTION 5 — Company Story
@@ -1840,16 +2171,42 @@ const OrganizationProfile = () => {
       {/* ════════════════════════════════════════════════
           ENRICHMENT — Office Locations
           ════════════════════════════════════════════════ */}
-      {!isEditing && <OfficeLocations locations={enrichedData.locations} />}
+      {isEditing ? (
+        <section className="op-section op-locations-section op-reveal op-edit-section-wrap">
+          <div className="op-container">
+            <div className="op-section-edit-title-row">
+              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Office Locations</h2>
+              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+            </div>
+            <div className="op-edit-cards">
+              {(enrichForm.locations || []).map((loc, i) => (
+                <div key={i} className="op-edit-card">
+                  <button className="op-edit-card-remove" onClick={() => setEnrichForm(p => ({ ...p, locations: p.locations.filter((_, idx) => idx !== i) }))}>&times;</button>
+                  <div className="op-inline-grid">
+                    <div className="op-inline-field">
+                      <label className="op-inline-label">City</label>
+                      <input className="op-inline-input" value={loc.city} onChange={e => setEnrichForm(p => { const a = [...p.locations]; a[i] = { ...a[i], city: e.target.value }; return { ...p, locations: a }; })} placeholder="e.g. San Francisco" />
+                    </div>
+                    <div className="op-inline-field">
+                      <label className="op-inline-label">Country</label>
+                      <input className="op-inline-input" value={loc.country} onChange={e => setEnrichForm(p => { const a = [...p.locations]; a[i] = { ...a[i], country: e.target.value }; return { ...p, locations: a }; })} placeholder="e.g. United States" />
+                    </div>
+                    <div className="op-inline-field" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 20 }}>
+                      <input type="checkbox" id={`hq-${i}`} checked={!!loc.headquarter} onChange={e => setEnrichForm(p => { const a = [...p.locations]; a[i] = { ...a[i], headquarter: e.target.checked }; return { ...p, locations: a }; })} style={{ width: 'auto', accentColor: '#1E3A8A' }} />
+                      <label htmlFor={`hq-${i}`} className="op-inline-label" style={{ margin: 0 }}>Mark as HQ</label>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button className="op-edit-add-btn" onClick={() => setEnrichForm(p => ({ ...p, locations: [...(p.locations || []), { city: '', country: '', headquarter: false }] }))}>+ Add Location</button>
+          </div>
+        </section>
+      ) : (
+        <OfficeLocations locations={enrichedData.locations} />
+      )}
 
-      {/* ════════════════════════════════════════════════
-          ENRICHMENT — Similar Organizations
-          ════════════════════════════════════════════════ */}
-      {!isEditing && <SimilarOrganizations orgs={enrichedData.similarOrgs} />}
-
-      {/* ════════════════════════════════════════════════
-          ENRICHMENT — Social Media Channels
-          ════════════════════════════════════════════════ */}
+      {/* Social Media Channels — display-only (edit via Connect & Follow section above) */}
       {!isEditing && <SocialMediaSection socialMedia={enrichedData.socialMedia} />}
 
       {/* ════════════════════════════════════════════════
