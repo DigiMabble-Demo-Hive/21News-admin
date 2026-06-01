@@ -575,10 +575,17 @@ const ContactInfoSection = ({ contactInfo, mediaAndPress }) => {
 const OfficeLocations = ({ locations }) => {
   const [ref, visible] = useScrollReveal();
   const [expanded, setExpanded] = useState(false);
+
+  const sorted = [...locations].sort((a, b) => {
+    const aHQ = a.headquarter === true || a.headquarter === 'true';
+    const bHQ = b.headquarter === true || b.headquarter === 'true';
+    return bHQ - aHQ;
+  });
+
   const SHOW_COUNT = 3;
-  const hasMore = locations.length > 4;
-  const visibleLocations = hasMore && !expanded ? locations.slice(0, SHOW_COUNT) : locations;
-  const hiddenCount = locations.length - SHOW_COUNT;
+  const hasMore = sorted.length > 4;
+  const visibleLocations = hasMore && !expanded ? sorted.slice(0, SHOW_COUNT) : sorted;
+  const hiddenCount = sorted.length - SHOW_COUNT;
   if (!locations.length) return null;
   return (
     <section ref={ref} className={`op-section op-locations-section ${visible ? 'op-reveal' : ''}`}>
@@ -1620,66 +1627,96 @@ const OrganizationProfile = () => {
       )}
 
       {/* ════════════════════════════════════════════════
-          ENRICHMENT — Specialization Tags
+          SECTION 5 — Company Story
           ════════════════════════════════════════════════ */}
-      {isEditing ? (
-        <section className="op-section op-tags-section op-reveal op-edit-section-wrap">
+      {(hasStory || isEditing) && (
+        <section className={`op-section op-story-section op-reveal ${isEditing ? 'op-edit-section-wrap' : ''}`}>
           <div className="op-container">
-            <div className="op-section-edit-title-row">
-              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Specializations</h2>
-              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
-            </div>
-            <div className="op-tags-wrap" style={{ marginBottom: 12 }}>
-              {(enrichForm.specializations || []).map((tag, i) => (
-                <span key={i} className="op-trusted-edit-chip">
-                  {tag}<button onClick={() => setEnrichForm(p => ({ ...p, specializations: p.specializations.filter((_, idx) => idx !== i) }))}>&times;</button>
-                </span>
-              ))}
-            </div>
-            <div className="op-trusted-add-row">
-              <input ref={specInputRef} placeholder="e.g. Machine Learning, SaaS…" onKeyDown={e => { if (e.key === 'Enter') { const v = specInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, specializations: [...(p.specializations || []), v] })); specInputRef.current.value = ''; } } }} />
-              <button onClick={() => { const v = specInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, specializations: [...(p.specializations || []), v] })); specInputRef.current.value = ''; } }}>+ Add</button>
-            </div>
-          </div>
-        </section>
-      ) : (
-        <SpecializationTags tags={enrichedData.specializations} />
-      )}
-
-      {/* ════════════════════════════════════════════════
-          ENRICHMENT — Trusted Parties (consolidated, display only)
-          Edit via "Trusted By" section below when isEditing
-          ════════════════════════════════════════════════ */}
-      {!isEditing && (
-        <TrustedPartiesSection
-          trustedBy={trustedOrganizations}
-          clients={enrichedData.siteClients}
-          partners={enrichedData.sitePartners}
-        />
-      )}
-
-      {/* ════════════════════════════════════════════════
-          SECTION 3 — Trusted By editable (edit mode only)
-          ════════════════════════════════════════════════ */}
-      {isEditing && (
-        <section className="op-section op-trusted-section op-reveal op-edit-section-wrap">
-          <div className="op-container">
-            <div className="op-section-edit-title-row">
-              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Trusted By</h2>
-              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
-            </div>
-            <div className="op-trusted-edit-wrap">
-              {(form.trusted_by || []).map((name, i) => (
-                <span key={i} className="op-trusted-edit-chip">
-                  {name}
-                  <button onClick={() => sfRemove('trusted_by', i)}>&times;</button>
-                </span>
-              ))}
-            </div>
-            <div className="op-trusted-add-row">
-              <input ref={trustedInputRef} placeholder="Type organization name..." onKeyDown={(e) => { if (e.key === 'Enter') sfAddStr('trusted_by', trustedInputRef); }} />
-              <button onClick={() => sfAddStr('trusted_by', trustedInputRef)}>+ Add</button>
-            </div>
+            {isEditing ? (
+              <>
+                <div className="op-section-edit-title-row">
+                  <h2 className="op-section-title" style={{ marginBottom: 0 }}>Company Story</h2>
+                  <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <div className="op-inline-field">
+                    <label className="op-inline-label">Mission</label>
+                    <textarea className="op-inline-textarea" rows={3} value={form.mission || ''} onChange={(e) => sf('mission', e.target.value)} placeholder="Our mission is to..." />
+                  </div>
+                  <div className="op-inline-field">
+                    <label className="op-inline-label">Vision</label>
+                    <textarea className="op-inline-textarea" rows={3} value={form.vision || ''} onChange={(e) => sf('vision', e.target.value)} placeholder="We envision a world where..." />
+                  </div>
+                  <div className="op-inline-field">
+                    <label className="op-inline-label">Market Positioning</label>
+                    <textarea className="op-inline-textarea" rows={3} value={form.market_positioning || ''} onChange={(e) => sf('market_positioning', e.target.value)} placeholder="We differentiate ourselves by..." />
+                  </div>
+                  <div>
+                    <label className="op-inline-label" style={{ display: 'block', marginBottom: 8 }}>Key Differentiators</label>
+                    <div className="op-edit-cards">
+                      {(form.key_differentiators || []).map((item, i) => (
+                        <div key={i} className="op-edit-card" style={{ padding: '10px 44px 10px 14px' }}>
+                          <button className="op-edit-card-remove" onClick={() => sfRemove('key_differentiators', i)}>&times;</button>
+                          <input className="op-inline-input" value={item} onChange={(e) => sfUpdateStr('key_differentiators', i, e.target.value)} placeholder="e.g. First-mover in AI-powered logistics" />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="op-trusted-add-row">
+                      <input ref={diffInputRef} placeholder="Type a differentiator..." onKeyDown={(e) => { if (e.key === 'Enter') sfAddStr('key_differentiators', diffInputRef); }} />
+                      <button onClick={() => sfAddStr('key_differentiators', diffInputRef)}>+ Add</button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="op-section-title">Company Story</h2>
+                <p className="op-section-subtitle">Purpose, vision and what makes this company unique</p>
+                {(org.story.mission || org.story.vision) && (
+                  <div className="op-story-mv-row">
+                    {org.story.mission && (
+                      <div className="op-story-mv-card op-story-mv-card--mission">
+                        <div className="op-story-mv-card__glow" />
+                        <div className="op-story-mv-card__icon"><Target size={20} /></div>
+                        <span className="op-story-mv-card__label">Mission</span>
+                        <p className="op-story-mv-card__text">{org.story.mission}</p>
+                      </div>
+                    )}
+                    {org.story.vision && (
+                      <div className="op-story-mv-card op-story-mv-card--vision">
+                        <div className="op-story-mv-card__glow" />
+                        <div className="op-story-mv-card__icon"><Eye size={20} /></div>
+                        <span className="op-story-mv-card__label">Vision</span>
+                        <p className="op-story-mv-card__text">{org.story.vision}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {org.story.marketPositioning && (
+                  <div className="op-story-market">
+                    <div className="op-story-market__bar" />
+                    <div className="op-story-market__inner">
+                      <span className="op-story-market__label"><TrendingUp size={13} />Market Positioning</span>
+                      <p className="op-story-market__text">{org.story.marketPositioning}</p>
+                    </div>
+                  </div>
+                )}
+                {org.story.differentiators.length > 0 && (
+                  <div className="op-story-diff-section">
+                    <span className="op-story-diff-section__title">Key Differentiators</span>
+                    <div className="op-story-diff-grid">
+                      {org.story.differentiators.map((d, i) => (
+                        <div key={i} className="op-story-diff-card" style={{ animationDelay: `${i * 70}ms` }}>
+                          <div className="op-story-diff-card__num">{String(i + 1).padStart(2, '0')}</div>
+                          <div className="op-story-diff-card__check"><Check size={11} /></div>
+                          <p className="op-story-diff-card__text">{d}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </section>
       )}
@@ -1792,41 +1829,164 @@ const OrganizationProfile = () => {
       )}
 
       {/* ════════════════════════════════════════════════
-          ENRICHMENT — News & Press
+          ENRICHMENT — Specialization Tags
           ════════════════════════════════════════════════ */}
       {isEditing ? (
-        <section className="op-section op-news-section op-reveal op-edit-section-wrap">
+        <section className="op-section op-tags-section op-reveal op-edit-section-wrap">
           <div className="op-container">
             <div className="op-section-edit-title-row">
-              <h2 className="op-section-title" style={{ marginBottom: 0 }}>News &amp; Press Articles</h2>
+              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Specializations</h2>
               <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
             </div>
-            <div className="op-edit-cards">
-              {(enrichForm.news || []).map((a, i) => (
-                <div key={i} className="op-edit-card">
-                  <button className="op-edit-card-remove" onClick={() => setEnrichForm(p => ({ ...p, news: p.news.filter((_, idx) => idx !== i) }))}>&times;</button>
-                  <div className="op-inline-grid">
-                    <div className="op-inline-field op-inline-grid--full">
-                      <label className="op-inline-label">Headline</label>
-                      <input className="op-inline-input" value={a.title} onChange={e => setEnrichForm(p => { const arr = [...p.news]; arr[i] = { ...arr[i], title: e.target.value }; return { ...p, news: arr }; })} placeholder="Article headline…" />
-                    </div>
-                    <div className="op-inline-field">
-                      <label className="op-inline-label">URL</label>
-                      <input className="op-inline-input" type="url" value={a.url} onChange={e => setEnrichForm(p => { const arr = [...p.news]; arr[i] = { ...arr[i], url: e.target.value }; return { ...p, news: arr }; })} placeholder="https://…" />
-                    </div>
-                    <div className="op-inline-field">
-                      <label className="op-inline-label">Source / Publication</label>
-                      <input className="op-inline-input" value={a.source} onChange={e => setEnrichForm(p => { const arr = [...p.news]; arr[i] = { ...arr[i], source: e.target.value }; return { ...p, news: arr }; })} placeholder="e.g. TechCrunch" />
-                    </div>
-                  </div>
-                </div>
+            <div className="op-tags-wrap" style={{ marginBottom: 12 }}>
+              {(enrichForm.specializations || []).map((tag, i) => (
+                <span key={i} className="op-trusted-edit-chip">
+                  {tag}<button onClick={() => setEnrichForm(p => ({ ...p, specializations: p.specializations.filter((_, idx) => idx !== i) }))}>&times;</button>
+                </span>
               ))}
             </div>
-            <button className="op-edit-add-btn" onClick={() => setEnrichForm(p => ({ ...p, news: [...(p.news || []), { title: '', url: '', source: '' }] }))}>+ Add Article</button>
+            <div className="op-trusted-add-row">
+              <input ref={specInputRef} placeholder="e.g. Machine Learning, SaaS…" onKeyDown={e => { if (e.key === 'Enter') { const v = specInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, specializations: [...(p.specializations || []), v] })); specInputRef.current.value = ''; } } }} />
+              <button onClick={() => { const v = specInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, specializations: [...(p.specializations || []), v] })); specInputRef.current.value = ''; } }}>+ Add</button>
+            </div>
           </div>
         </section>
       ) : (
-        <NewsAndPress articles={enrichedData.news} />
+        <SpecializationTags tags={enrichedData.specializations} />
+      )}
+
+      {/* ════════════════════════════════════════════════
+          SECTION 6 — Leadership & Key People
+          ════════════════════════════════════════════════ */}
+      {(org.leadership.length > 0 || isEditing) && (
+        <section className={`op-section op-reveal ${isEditing ? 'op-edit-section-wrap' : ''}`}>
+          <div className="op-container">
+            {isEditing ? (
+              <>
+                <div className="op-section-edit-title-row">
+                  <h2 className="op-section-title" style={{ marginBottom: 0 }}>Leadership &amp; Key People</h2>
+                  <button className="op-edit-add-btn ep-add-btn--primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#1E3A8A', color: '#fff', border: 'none' }} onClick={() => setPickerOpen(true)}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    Pick from Lexicon
+                  </button>
+                </div>
+                {(form.leadership || []).length > 0 ? (
+                  <div className="lp-lexicon-grid">
+                    {(form.leadership || []).map((person, realIdx) => {
+                      const initials = (person.name || '').split(' ').filter(Boolean).map((w) => w[0]).join('').toUpperCase().slice(0, 2) || 'NA';
+                      const badgeLabel = person.source === 'live' ? 'Live' : person.source === 'manual' ? 'Manual' : 'Lexicon';
+                      return (
+                        <div key={person.user_id || realIdx} className="lp-mini-card">
+                          <div className="lp-mini-avatar">
+                            {person.image
+                              ? <img src={person.image} alt={person.name} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
+                              : null}
+                            <span style={{ display: person.image ? 'none' : 'flex' }}>{initials}</span>
+                          </div>
+                          <div className="lp-mini-info">
+                            <span className="lp-mini-name">{person.name || '—'}</span>
+                            {person.role && <span className="lp-mini-role">{person.role}</span>}
+                          </div>
+                          <span className="lp-mini-badge">{badgeLabel}</span>
+                          <button className="lp-mini-remove" onClick={() => sfRemove('leadership', realIdx)}>×</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p style={{ fontSize: 13, color: '#94a3b8', margin: '12px 0 4px' }}>
+                    No leadership members yet. Pick from the Lexicon to add people.
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <h2 className="op-section-title">Leadership &amp; Key People</h2>
+                <p className="op-section-subtitle">Verified individuals connected to this organization</p>
+                <div className="op-leadership-grid">
+                  {org.leadership.map((person, i) => (
+                    <LeadershipCard
+                      key={person.user_id || i}
+                      user_id={person.user_id}
+                      entitySlug={person.entity_slug}
+                      name={person.name}
+                      role={person.role}
+                      sector={person.sector}
+                      authorityScore={person.authority_score}
+                      image={person.cropped_photo_url || person.image_url || null}
+                    />
+                  ))}
+                </div>
+                <div className="op-team-cta">
+                  <button className="op-team-cta__btn">Explore All Team Members <ChevronRight size={15} /></button>
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ════════════════════════════════════════════════
+          ENRICHMENT — Trusted Parties (display) / Trusted By (edit)
+          ════════════════════════════════════════════════ */}
+      {!isEditing && (
+        <TrustedPartiesSection
+          trustedBy={trustedOrganizations}
+          clients={enrichedData.siteClients}
+          partners={enrichedData.sitePartners}
+        />
+      )}
+      {isEditing && (
+        <section className="op-section op-trusted-section op-reveal op-edit-section-wrap">
+          <div className="op-container">
+            <div className="op-section-edit-title-row">
+              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Trusted By</h2>
+              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+            </div>
+            <div className="op-trusted-edit-wrap">
+              {(form.trusted_by || []).map((name, i) => (
+                <span key={i} className="op-trusted-edit-chip">
+                  {name}
+                  <button onClick={() => sfRemove('trusted_by', i)}>&times;</button>
+                </span>
+              ))}
+            </div>
+            <div className="op-trusted-add-row">
+              <input ref={trustedInputRef} placeholder="Type organization name..." onKeyDown={(e) => { if (e.key === 'Enter') sfAddStr('trusted_by', trustedInputRef); }} />
+              <button onClick={() => sfAddStr('trusted_by', trustedInputRef)}>+ Add</button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ════════════════════════════════════════════════
+          ENRICHMENT — Awards & Recognition
+          ════════════════════════════════════════════════ */}
+      {isEditing ? (
+        <section className="op-section op-awards-section op-reveal op-edit-section-wrap">
+          <div className="op-container">
+            <div className="op-section-edit-title-row">
+              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Awards &amp; Recognition</h2>
+              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+            </div>
+            <div className="op-edit-cards">
+              {(enrichForm.siteAwards || []).map((award, i) => (
+                <div key={i} className="op-edit-card" style={{ padding: '10px 44px 10px 14px' }}>
+                  <button className="op-edit-card-remove" onClick={() => setEnrichForm(p => ({ ...p, siteAwards: p.siteAwards.filter((_, idx) => idx !== i) }))}>&times;</button>
+                  <input className="op-inline-input" value={award} onChange={e => setEnrichForm(p => { const a = [...p.siteAwards]; a[i] = e.target.value; return { ...p, siteAwards: a }; })} placeholder="e.g. Best SaaS Product 2024 on G2" />
+                </div>
+              ))}
+            </div>
+            <div className="op-trusted-add-row">
+              <input ref={awardsInputRef} placeholder="e.g. Forbes 30 Under 30 on Forbes 2023…" onKeyDown={e => { if (e.key === 'Enter') { const v = awardsInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, siteAwards: [...(p.siteAwards || []), v] })); awardsInputRef.current.value = ''; } } }} />
+              <button onClick={() => { const v = awardsInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, siteAwards: [...(p.siteAwards || []), v] })); awardsInputRef.current.value = ''; } }}>+ Add</button>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <AwardsSection awards={enrichedData.siteAwards} />
       )}
 
       {/* ════════════════════════════════════════════════
@@ -1876,31 +2036,41 @@ const OrganizationProfile = () => {
       )}
 
       {/* ════════════════════════════════════════════════
-          ENRICHMENT — Awards & Recognition
+          ENRICHMENT — News & Press
           ════════════════════════════════════════════════ */}
       {isEditing ? (
-        <section className="op-section op-awards-section op-reveal op-edit-section-wrap">
+        <section className="op-section op-news-section op-reveal op-edit-section-wrap">
           <div className="op-container">
             <div className="op-section-edit-title-row">
-              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Awards &amp; Recognition</h2>
+              <h2 className="op-section-title" style={{ marginBottom: 0 }}>News &amp; Press Articles</h2>
               <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
             </div>
             <div className="op-edit-cards">
-              {(enrichForm.siteAwards || []).map((award, i) => (
-                <div key={i} className="op-edit-card" style={{ padding: '10px 44px 10px 14px' }}>
-                  <button className="op-edit-card-remove" onClick={() => setEnrichForm(p => ({ ...p, siteAwards: p.siteAwards.filter((_, idx) => idx !== i) }))}>&times;</button>
-                  <input className="op-inline-input" value={award} onChange={e => setEnrichForm(p => { const a = [...p.siteAwards]; a[i] = e.target.value; return { ...p, siteAwards: a }; })} placeholder="e.g. Best SaaS Product 2024 on G2" />
+              {(enrichForm.news || []).map((a, i) => (
+                <div key={i} className="op-edit-card">
+                  <button className="op-edit-card-remove" onClick={() => setEnrichForm(p => ({ ...p, news: p.news.filter((_, idx) => idx !== i) }))}>&times;</button>
+                  <div className="op-inline-grid">
+                    <div className="op-inline-field op-inline-grid--full">
+                      <label className="op-inline-label">Headline</label>
+                      <input className="op-inline-input" value={a.title} onChange={e => setEnrichForm(p => { const arr = [...p.news]; arr[i] = { ...arr[i], title: e.target.value }; return { ...p, news: arr }; })} placeholder="Article headline…" />
+                    </div>
+                    <div className="op-inline-field">
+                      <label className="op-inline-label">URL</label>
+                      <input className="op-inline-input" type="url" value={a.url} onChange={e => setEnrichForm(p => { const arr = [...p.news]; arr[i] = { ...arr[i], url: e.target.value }; return { ...p, news: arr }; })} placeholder="https://…" />
+                    </div>
+                    <div className="op-inline-field">
+                      <label className="op-inline-label">Source / Publication</label>
+                      <input className="op-inline-input" value={a.source} onChange={e => setEnrichForm(p => { const arr = [...p.news]; arr[i] = { ...arr[i], source: e.target.value }; return { ...p, news: arr }; })} placeholder="e.g. TechCrunch" />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
-            <div className="op-trusted-add-row">
-              <input ref={awardsInputRef} placeholder="e.g. Forbes 30 Under 30 on Forbes 2023…" onKeyDown={e => { if (e.key === 'Enter') { const v = awardsInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, siteAwards: [...(p.siteAwards || []), v] })); awardsInputRef.current.value = ''; } } }} />
-              <button onClick={() => { const v = awardsInputRef.current?.value?.trim(); if (v) { setEnrichForm(p => ({ ...p, siteAwards: [...(p.siteAwards || []), v] })); awardsInputRef.current.value = ''; } }}>+ Add</button>
-            </div>
+            <button className="op-edit-add-btn" onClick={() => setEnrichForm(p => ({ ...p, news: [...(p.news || []), { title: '', url: '', source: '' }] }))}>+ Add Article</button>
           </div>
         </section>
       ) : (
-        <AwardsSection awards={enrichedData.siteAwards} />
+        <NewsAndPress articles={enrichedData.news} />
       )}
 
       {/* Investor Intelligence — display-only (auto-scraped) */}
@@ -1946,6 +2116,44 @@ const OrganizationProfile = () => {
         </section>
       ) : (
         <PublicationsSection pubs={enrichedData.publications} />
+      )}
+
+      {/* ════════════════════════════════════════════════
+          ENRICHMENT — Office Locations
+          ════════════════════════════════════════════════ */}
+      {isEditing ? (
+        <section className="op-section op-locations-section op-reveal op-edit-section-wrap">
+          <div className="op-container">
+            <div className="op-section-edit-title-row">
+              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Office Locations</h2>
+              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
+            </div>
+            <div className="op-edit-cards">
+              {(enrichForm.locations || []).map((loc, i) => (
+                <div key={i} className="op-edit-card">
+                  <button className="op-edit-card-remove" onClick={() => setEnrichForm(p => ({ ...p, locations: p.locations.filter((_, idx) => idx !== i) }))}>&times;</button>
+                  <div className="op-inline-grid">
+                    <div className="op-inline-field">
+                      <label className="op-inline-label">City</label>
+                      <input className="op-inline-input" value={loc.city} onChange={e => setEnrichForm(p => { const a = [...p.locations]; a[i] = { ...a[i], city: e.target.value }; return { ...p, locations: a }; })} placeholder="e.g. San Francisco" />
+                    </div>
+                    <div className="op-inline-field">
+                      <label className="op-inline-label">Country</label>
+                      <input className="op-inline-input" value={loc.country} onChange={e => setEnrichForm(p => { const a = [...p.locations]; a[i] = { ...a[i], country: e.target.value }; return { ...p, locations: a }; })} placeholder="e.g. United States" />
+                    </div>
+                    <div className="op-inline-field" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 20 }}>
+                      <input type="checkbox" id={`hq-${i}`} checked={!!loc.headquarter} onChange={e => setEnrichForm(p => { const a = [...p.locations]; a[i] = { ...a[i], headquarter: e.target.checked }; return { ...p, locations: a }; })} style={{ width: 'auto', accentColor: '#1E3A8A' }} />
+                      <label htmlFor={`hq-${i}`} className="op-inline-label" style={{ margin: 0 }}>Mark as HQ</label>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button className="op-edit-add-btn" onClick={() => setEnrichForm(p => ({ ...p, locations: [...(p.locations || []), { city: '', country: '', headquarter: false }] }))}>+ Add Location</button>
+          </div>
+        </section>
+      ) : (
+        <OfficeLocations locations={enrichedData.locations} />
       )}
 
       {/* ════════════════════════════════════════════════
@@ -1996,254 +2204,6 @@ const OrganizationProfile = () => {
         </section>
       ) : (
         <ContactInfoSection contactInfo={enrichedData.contactInfo} mediaAndPress={enrichedData.mediaAndPress} />
-      )}
-
-      {/* ════════════════════════════════════════════════
-          SECTION 5 — Company Story
-          ════════════════════════════════════════════════ */}
-      {(hasStory || isEditing) && (
-        <section className={`op-section op-story-section op-reveal ${isEditing ? 'op-edit-section-wrap' : ''}`}>
-          <div className="op-container">
-            {isEditing ? (
-              <>
-                <div className="op-section-edit-title-row">
-                  <h2 className="op-section-title" style={{ marginBottom: 0 }}>Company Story</h2>
-                  <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <div className="op-inline-field">
-                    <label className="op-inline-label">Mission</label>
-                    <textarea className="op-inline-textarea" rows={3} value={form.mission || ''} onChange={(e) => sf('mission', e.target.value)} placeholder="Our mission is to..." />
-                  </div>
-                  <div className="op-inline-field">
-                    <label className="op-inline-label">Vision</label>
-                    <textarea className="op-inline-textarea" rows={3} value={form.vision || ''} onChange={(e) => sf('vision', e.target.value)} placeholder="We envision a world where..." />
-                  </div>
-                  <div className="op-inline-field">
-                    <label className="op-inline-label">Market Positioning</label>
-                    <textarea className="op-inline-textarea" rows={3} value={form.market_positioning || ''} onChange={(e) => sf('market_positioning', e.target.value)} placeholder="We differentiate ourselves by..." />
-                  </div>
-                  <div>
-                    <label className="op-inline-label" style={{ display: 'block', marginBottom: 8 }}>Key Differentiators</label>
-                    <div className="op-edit-cards">
-                      {(form.key_differentiators || []).map((item, i) => (
-                        <div key={i} className="op-edit-card" style={{ padding: '10px 44px 10px 14px' }}>
-                          <button className="op-edit-card-remove" onClick={() => sfRemove('key_differentiators', i)}>&times;</button>
-                          <input className="op-inline-input" value={item} onChange={(e) => sfUpdateStr('key_differentiators', i, e.target.value)} placeholder="e.g. First-mover in AI-powered logistics" />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="op-trusted-add-row">
-                      <input ref={diffInputRef} placeholder="Type a differentiator..." onKeyDown={(e) => { if (e.key === 'Enter') sfAddStr('key_differentiators', diffInputRef); }} />
-                      <button onClick={() => sfAddStr('key_differentiators', diffInputRef)}>+ Add</button>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <h2 className="op-section-title">Company Story</h2>
-                <p className="op-section-subtitle">Purpose, vision and what makes this company unique</p>
-                {(org.story.mission || org.story.vision) && (
-                  <div className="op-story-mv-row">
-                    {org.story.mission && (
-                      <div className="op-story-mv-card op-story-mv-card--mission">
-                        <div className="op-story-mv-card__glow" />
-                        <div className="op-story-mv-card__icon"><Target size={20} /></div>
-                        <span className="op-story-mv-card__label">Mission</span>
-                        <p className="op-story-mv-card__text">{org.story.mission}</p>
-                      </div>
-                    )}
-                    {org.story.vision && (
-                      <div className="op-story-mv-card op-story-mv-card--vision">
-                        <div className="op-story-mv-card__glow" />
-                        <div className="op-story-mv-card__icon"><Eye size={20} /></div>
-                        <span className="op-story-mv-card__label">Vision</span>
-                        <p className="op-story-mv-card__text">{org.story.vision}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {org.story.marketPositioning && (
-                  <div className="op-story-market">
-                    <div className="op-story-market__bar" />
-                    <div className="op-story-market__inner">
-                      <span className="op-story-market__label"><TrendingUp size={13} />Market Positioning</span>
-                      <p className="op-story-market__text">{org.story.marketPositioning}</p>
-                    </div>
-                  </div>
-                )}
-                {org.story.differentiators.length > 0 && (
-                  <div className="op-story-diff-section">
-                    <span className="op-story-diff-section__title">Key Differentiators</span>
-                    <div className="op-story-diff-grid">
-                      {org.story.differentiators.map((d, i) => (
-                        <div key={i} className="op-story-diff-card" style={{ animationDelay: `${i * 70}ms` }}>
-                          <div className="op-story-diff-card__num">{String(i + 1).padStart(2, '0')}</div>
-                          <div className="op-story-diff-card__check"><Check size={11} /></div>
-                          <p className="op-story-diff-card__text">{d}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* ════════════════════════════════════════════════
-          SECTION 6 — Leadership & Key People
-          ════════════════════════════════════════════════ */}
-      {(org.leadership.length > 0 || isEditing) && (
-        <section className={`op-section op-reveal ${isEditing ? 'op-edit-section-wrap' : ''}`}>
-          <div className="op-container">
-            {isEditing ? (
-              <>
-                <div className="op-section-edit-title-row">
-                  <h2 className="op-section-title" style={{ marginBottom: 0 }}>Leadership &amp; Key People</h2>
-                  <button className="op-edit-add-btn ep-add-btn--primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#1E3A8A', color: '#fff', border: 'none' }} onClick={() => setPickerOpen(true)}>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                    Pick from Lexicon
-                  </button>
-                </div>
-
-                {(form.leadership || []).length > 0 ? (
-                  <div className="lp-lexicon-grid">
-                    {(form.leadership || []).map((person, realIdx) => {
-                      const initials = (person.name || '').split(' ').filter(Boolean).map((w) => w[0]).join('').toUpperCase().slice(0, 2) || 'NA';
-                      const badgeLabel = person.source === 'live' ? 'Live' : person.source === 'manual' ? 'Manual' : 'Lexicon';
-                      return (
-                        <div key={person.user_id || realIdx} className="lp-mini-card">
-                          <div className="lp-mini-avatar">
-                            {person.image
-                              ? <img src={person.image} alt={person.name} onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
-                              : null}
-                            <span style={{ display: person.image ? 'none' : 'flex' }}>{initials}</span>
-                          </div>
-                          <div className="lp-mini-info">
-                            <span className="lp-mini-name">{person.name || '—'}</span>
-                            {person.role && <span className="lp-mini-role">{person.role}</span>}
-                          </div>
-                          <span className="lp-mini-badge">{badgeLabel}</span>
-                          <button className="lp-mini-remove" onClick={() => sfRemove('leadership', realIdx)}>×</button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p style={{ fontSize: 13, color: '#94a3b8', margin: '12px 0 4px' }}>
-                    No leadership members yet. Pick from the Lexicon to add people.
-                  </p>
-                )}
-
-              </>
-            ) : (
-              <>
-                <h2 className="op-section-title">Leadership &amp; Key People</h2>
-                <p className="op-section-subtitle">Verified individuals connected to this organization</p>
-                <div className="op-leadership-grid">
-                  {org.leadership.map((person, i) => (
-                    <LeadershipCard
-                      key={person.user_id || i}
-                      user_id={person.user_id}
-                      entitySlug={person.entity_slug}
-                      name={person.name}
-                      role={person.role}
-                      sector={person.sector}
-                      authorityScore={person.authority_score}
-                      image={person.cropped_photo_url || person.image_url || null}
-                    />
-                  ))}
-                </div>
-                <div className="op-team-cta">
-                  <button className="op-team-cta__btn">Explore All Team Members <ChevronRight size={15} /></button>
-                </div>
-              </>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* ════════════════════════════════════════════════
-          ENRICHMENT — Office Locations
-          ════════════════════════════════════════════════ */}
-      {isEditing ? (
-        <section className="op-section op-locations-section op-reveal op-edit-section-wrap">
-          <div className="op-container">
-            <div className="op-section-edit-title-row">
-              <h2 className="op-section-title" style={{ marginBottom: 0 }}>Office Locations</h2>
-              <span className="op-editing-badge"><PencilIcon size={10} />Editing</span>
-            </div>
-            <div className="op-edit-cards">
-              {(enrichForm.locations || []).map((loc, i) => (
-                <div key={i} className="op-edit-card">
-                  <button className="op-edit-card-remove" onClick={() => setEnrichForm(p => ({ ...p, locations: p.locations.filter((_, idx) => idx !== i) }))}>&times;</button>
-                  <div className="op-inline-grid">
-                    <div className="op-inline-field">
-                      <label className="op-inline-label">City</label>
-                      <input className="op-inline-input" value={loc.city} onChange={e => setEnrichForm(p => { const a = [...p.locations]; a[i] = { ...a[i], city: e.target.value }; return { ...p, locations: a }; })} placeholder="e.g. San Francisco" />
-                    </div>
-                    <div className="op-inline-field">
-                      <label className="op-inline-label">Country</label>
-                      <input className="op-inline-input" value={loc.country} onChange={e => setEnrichForm(p => { const a = [...p.locations]; a[i] = { ...a[i], country: e.target.value }; return { ...p, locations: a }; })} placeholder="e.g. United States" />
-                    </div>
-                    <div className="op-inline-field" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 20 }}>
-                      <input type="checkbox" id={`hq-${i}`} checked={!!loc.headquarter} onChange={e => setEnrichForm(p => { const a = [...p.locations]; a[i] = { ...a[i], headquarter: e.target.checked }; return { ...p, locations: a }; })} style={{ width: 'auto', accentColor: '#1E3A8A' }} />
-                      <label htmlFor={`hq-${i}`} className="op-inline-label" style={{ margin: 0 }}>Mark as HQ</label>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button className="op-edit-add-btn" onClick={() => setEnrichForm(p => ({ ...p, locations: [...(p.locations || []), { city: '', country: '', headquarter: false }] }))}>+ Add Location</button>
-          </div>
-        </section>
-      ) : (
-        <OfficeLocations locations={enrichedData.locations} />
-      )}
-
-      {/* Social Media Channels — display-only (edit via Connect & Follow section above) */}
-      {!isEditing && <SocialMediaSection socialMedia={enrichedData.socialMedia} />}
-
-      {/* ════════════════════════════════════════════════
-          SECTION 7 — Verified Relationships (premium, display only)
-          ════════════════════════════════════════════════ */}
-      {features.verifiedRelationships && !isEditing && (
-        <section className="op-section op-reveal">
-          <div className="op-container">
-            <h2 className="op-section-title">Verified Relationships</h2>
-            <div className="op-rel-panel">
-              <div className="op-rel-center">
-                <div className="op-rel-org-icon"><Building2 size={30} /></div>
-                <div className="op-rel-org-name">{org.name}</div>
-              </div>
-              <div className="op-rel-grid">
-                {[
-                  { value: relationships.founders,      label: 'Founders',       icon: <Users size={20} />      },
-                  { value: relationships.executives,    label: 'Executives',     icon: <Building2 size={20} />  },
-                  { value: relationships.awards,        label: 'Awards',         icon: <Award size={20} />      },
-                  { value: relationships.clients,       label: 'Clients',        icon: <Users size={20} />      },
-                  { value: relationships.publications,  label: 'Publications',   icon: <Newspaper size={20} />  },
-                  { value: relationships.mediaMentions, label: 'Media Mentions', icon: <TrendingUp size={20} /> },
-                ].map((item, i) => (
-                  <div key={i} className="op-rel-card">
-                    <div className="op-rel-card__icon">{item.icon}</div>
-                    <div className="op-rel-card__value">{item.value}</div>
-                    <div className="op-rel-card__label">{item.label}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="op-rel-footer">
-                <Zap size={13} />
-                AI-readable entity connections demonstrating verified authority ecosystem
-              </div>
-            </div>
-          </div>
-        </section>
       )}
 
       {/* ════════════════════════════════════════════════
@@ -2299,6 +2259,46 @@ const OrganizationProfile = () => {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Social Media Channels — display-only */}
+      {!isEditing && <SocialMediaSection socialMedia={enrichedData.socialMedia} />}
+
+      {/* ════════════════════════════════════════════════
+          SECTION 7 — Verified Relationships (premium, display only)
+          ════════════════════════════════════════════════ */}
+      {features.verifiedRelationships && !isEditing && (
+        <section className="op-section op-reveal">
+          <div className="op-container">
+            <h2 className="op-section-title">Verified Relationships</h2>
+            <div className="op-rel-panel">
+              <div className="op-rel-center">
+                <div className="op-rel-org-icon"><Building2 size={30} /></div>
+                <div className="op-rel-org-name">{org.name}</div>
+              </div>
+              <div className="op-rel-grid">
+                {[
+                  { value: relationships.founders,      label: 'Founders',       icon: <Users size={20} />      },
+                  { value: relationships.executives,    label: 'Executives',     icon: <Building2 size={20} />  },
+                  { value: relationships.awards,        label: 'Awards',         icon: <Award size={20} />      },
+                  { value: relationships.clients,       label: 'Clients',        icon: <Users size={20} />      },
+                  { value: relationships.publications,  label: 'Publications',   icon: <Newspaper size={20} />  },
+                  { value: relationships.mediaMentions, label: 'Media Mentions', icon: <TrendingUp size={20} /> },
+                ].map((item, i) => (
+                  <div key={i} className="op-rel-card">
+                    <div className="op-rel-card__icon">{item.icon}</div>
+                    <div className="op-rel-card__value">{item.value}</div>
+                    <div className="op-rel-card__label">{item.label}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="op-rel-footer">
+                <Zap size={13} />
+                AI-readable entity connections demonstrating verified authority ecosystem
+              </div>
             </div>
           </div>
         </section>
