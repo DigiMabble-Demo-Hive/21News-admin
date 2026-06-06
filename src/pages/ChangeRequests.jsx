@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import './EntityProfile.css';
 import '../components/EntityCard.css';
 import './ChangeRequests.css';
+import './OrganizationProfile.css';
 import { supabase } from '../lib/supabase';
 import { updateAdminProfile } from '../lib/adminProfileApi';
 import { updateSubmissionStatus } from '../lib/contactSubmissionsApi';
@@ -18,10 +19,105 @@ import {
   Eye,
   FileText,
   ArrowLeft,
-  ChevronLeft
+  ChevronLeft,
+  Building2,
+  MapPin,
+  Calendar,
+  Users,
+  ShieldCheck,
+  Zap,
+  UserCheck,
+  Star,
+  Check,
+  ExternalLink,
+  Target,
+  TrendingUp,
+  Award,
+  Database,
+  Newspaper,
+  Briefcase,
+  Globe,
+  Mail,
+  Phone,
+  BadgeDollarSign,
+  BarChart2,
 } from 'lucide-react';
 
 const STATUS_CHIPS = ['Pending', 'Changes Requested', 'Rejected', 'All', 'Approved'];
+
+/* ── Org profile field definitions ─────────────────────── */
+const ORG_FIELDS = [
+  { key: 'organization_name',  label: 'Organization Name' },
+  { key: 'tagline',            label: 'Tagline' },
+  { key: 'description',        label: 'Description' },
+  { key: 'industry',           label: 'Industry' },
+  { key: 'location',           label: 'Location' },
+  { key: 'founded_year',       label: 'Founded Year' },
+  { key: 'team_size',          label: 'Team Size' },
+  { key: 'mission',            label: 'Mission' },
+  { key: 'vision',             label: 'Vision' },
+  { key: 'market_positioning', label: 'Market Positioning' },
+  { key: 'channel_website',    label: 'Website' },
+  { key: 'website_url',        label: 'Website URL' },
+  { key: 'channel_linkedin',   label: 'LinkedIn' },
+  { key: 'channel_x',          label: 'X (Twitter)' },
+  { key: 'channel_youtube',    label: 'YouTube' },
+  { key: 'channel_github',     label: 'GitHub' },
+  { key: 'channel_crunchbase', label: 'Crunchbase' },
+  { key: 'core_services',      label: 'Core Services' },
+  { key: 'leadership',         label: 'Leadership' },
+  { key: 'trusted_by',         label: 'Trusted By' },
+  { key: 'key_differentiators',label: 'Key Differentiators' },
+  { key: 'awards',             label: 'Awards' },
+  { key: 'publications',       label: 'Publications' },
+  { key: 'news_articles',      label: 'News Articles' },
+  { key: 'reviews',            label: 'Reviews' },
+  { key: 'specializations',    label: 'Specializations' },
+  { key: 'products',           label: 'Products & Offerings' },
+  { key: 'key_features',       label: 'Key Features' },
+  { key: 'locations',          label: 'Office Locations' },
+  { key: 'contact',            label: 'Contact & Presence' },
+  { key: 'similar_orgs',       label: 'Similar Organizations' },
+  { key: 'investor_sources',   label: 'Funding & Investor Intelligence' },
+  { key: 'social_media',       label: 'Social Channels' },
+  { key: 'tech_stack',         label: 'Tech Stack' },
+  { key: 'media_and_press',    label: 'Press & Media' },
+  { key: 'image_url',                    label: 'Display Logo (master)' },
+  { key: 'profile_picture_url',          label: 'Organization Logo' },
+  { key: 'cropped_profile_picture_url',  label: 'Cropped Logo' },
+  { key: 'banner_picture_url',           label: 'Cover Banner' },
+  { key: 'cropped_banner_picture_url',   label: 'Cropped Banner' },
+];
+
+const ORG_ARRAY_KEYS = new Set([
+  'core_services', 'leadership', 'trusted_by', 'key_differentiators',
+  'awards', 'publications', 'news_articles', 'reviews',
+  'specializations', 'products', 'key_features', 'locations',
+  'similar_orgs', 'investor_sources', 'tech_stack', 'media_and_press',
+]);
+
+const ORG_SAFE_FIELDS = [
+  'organization_name', 'tagline', 'description', 'industry', 'location',
+  'founded_year', 'team_size', 'mission', 'vision', 'market_positioning',
+  'channel_website', 'website_url', 'channel_linkedin', 'channel_x',
+  'channel_youtube', 'channel_github', 'channel_crunchbase',
+  'core_services', 'leadership', 'trusted_by', 'key_differentiators',
+  'awards', 'publications', 'news_articles', 'reviews',
+  'specializations', 'products', 'key_features', 'locations',
+  'contact', 'similar_orgs', 'investor_sources', 'social_media',
+  'tech_stack', 'media_and_press', 'social_followers',
+  'image_url',
+  'profile_picture_url', 'cropped_profile_picture_url',
+  'banner_picture_url', 'cropped_banner_picture_url',
+  'approval_status',
+];
+
+const ORG_DETAILS_IMAGE_FIELDS = new Set([
+  'profile_picture_url', 'cropped_profile_picture_url',
+  'banner_picture_url',  'cropped_banner_picture_url',
+]);
+
+const ORG_FIELD_LABELS = Object.fromEntries(ORG_FIELDS.map(f => [f.key, f.label]));
 const PAGE_SIZE = 8;
 
 const STATUS_FILTER_MAP = {
@@ -94,6 +190,39 @@ const formatViews = (v) => {
   return v;
 };
 
+const parseFunding = (desc) => {
+  if (!desc) return null;
+  const amount = desc.match(/\$([\d.]+[BMK]?(?:\s*(?:[Bb]illion|[Mm]illion|[Tt]rillion))?)/)?.[0] || null;
+  const rounds = desc.match(/(\d+)\s+rounds?/i)?.[1] || null;
+  const investors = desc.match(/(\d+)\s+investors?/i)?.[1] || null;
+  if (!amount && !rounds && !investors) return null;
+  return { amount, rounds, investors };
+};
+
+const INVESTOR_PLATFORM_STYLE = {
+  Crunchbase: { bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' },
+  Tracxn:     { bg: '#f3e8ff', color: '#7c3aed', border: '#e9d5ff' },
+  Dealroom:   { bg: '#dbeafe', color: '#1d4ed8', border: '#bfdbfe' },
+  Wellfound:  { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' },
+  'Y Combinator': { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
+};
+
+const SOCIAL_ICON_MAP = {
+  linkedin:  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>,
+  instagram: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>,
+  youtube:   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/></svg>,
+  github:    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>,
+  twitter_x: <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>,
+};
+
+const SOCIAL_COLOR_MAP = {
+  linkedin:  { bg: '#eff6ff', color: '#0a66c2' },
+  instagram: { bg: '#fdf4ff', color: '#c026d3' },
+  youtube:   { bg: '#fff1f2', color: '#dc2626' },
+  github:    { bg: '#f9fafb', color: '#111827' },
+  twitter_x: { bg: '#f8fafc', color: '#1d4ed8' },
+};
+
 export default function ChangeRequests() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -116,6 +245,7 @@ export default function ChangeRequests() {
   const [profileImages, setProfileImages] = useState({});
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [answeredFields, setAnsweredFields] = useState({});
+  const [isOrgRequest, setIsOrgRequest] = useState(false);
 
   // Confirm + success modal state
   const [actionConfirm, setActionConfirm] = useState(null); // { type: 'approved'|'change_requested'|'rejected' }
@@ -147,59 +277,47 @@ export default function ChangeRequests() {
     };
   }, [selected]);
 
+  const PERSON_FIELDS = [
+    { key: 'name',         label: 'Name' },
+    { key: 'role',         label: 'Role' },
+    { key: 'subtitle',     label: 'Subtitle' },
+    { key: 'sector',       label: 'Sector' },
+    { key: 'location',     label: 'Location' },
+    { key: 'active_since', label: 'Since Year' },
+    { key: 'bio',          label: 'Biography' },
+    { key: 'linkedin_url', label: 'LinkedIn URL' },
+    { key: 'website_url',  label: 'Website URL' },
+    { key: 'company',      label: 'Company' },
+    { key: 'status',       label: 'Status' },
+    { key: 'trust_tags',   label: 'Trust Tags' },
+    { key: 'awards',       label: 'Awards' },
+    { key: 'videos',       label: 'Videos' },
+    { key: 'publications', label: 'Publications' },
+    { key: 'quick_facts',  label: 'Quick Facts' },
+  ];
+
   const getChangedFields = () => {
     if (!liveProfile || !editForm) return [];
-    const fields = [
-      { key: 'name', label: 'Name' },
-      { key: 'role', label: 'Role' },
-      { key: 'subtitle', label: 'Subtitle' },
-      { key: 'sector', label: 'Sector' },
-      { key: 'location', label: 'Location' },
-      { key: 'active_since', label: 'Since Year' },
-      { key: 'bio', label: 'Biography' },
-      { key: 'linkedin_url', label: 'LinkedIn URL' },
-      { key: 'website_url', label: 'Website URL' },
-      { key: 'company', label: 'Company' },
-      { key: 'status', label: 'Status' },
-      { key: 'trust_tags', label: 'Trust Tags' },
-      { key: 'awards', label: 'Awards' },
-      { key: 'videos', label: 'Videos' },
-      { key: 'publications', label: 'Publications' },
-      { key: 'quick_facts', label: 'Quick Facts' }
-    ];
+    const fields = isOrgRequest ? ORG_FIELDS : PERSON_FIELDS;
     return fields.filter(f => isFieldChanged(f.key));
   };
 
   const getProposedFields = () => {
     if (!liveProfile || !submittedProposed) return [];
-    const fields = [
-      { key: 'name', label: 'Name' },
-      { key: 'role', label: 'Role' },
-      { key: 'subtitle', label: 'Subtitle' },
-      { key: 'sector', label: 'Sector' },
-      { key: 'location', label: 'Location' },
-      { key: 'active_since', label: 'Since Year' },
-      { key: 'bio', label: 'Biography' },
-      { key: 'linkedin_url', label: 'LinkedIn URL' },
-      { key: 'website_url', label: 'Website URL' },
-      { key: 'company', label: 'Company' },
-      { key: 'status', label: 'Status' },
-      { key: 'trust_tags', label: 'Trust Tags' },
-      { key: 'awards', label: 'Awards' },
-      { key: 'videos', label: 'Videos' },
-      { key: 'publications', label: 'Publications' },
-      { key: 'quick_facts', label: 'Quick Facts' }
-    ];
+    const fields = isOrgRequest ? ORG_FIELDS : PERSON_FIELDS;
     return fields.filter(f => {
-      const orig = liveProfile?.[f.key] || '';
+      const orig = liveProfile?.[f.key] ?? '';
       const prop = submittedProposed?.[f.key];
       if (prop === undefined) return false;
-      if (Array.isArray(orig) || Array.isArray(prop)) {
+      if (Array.isArray(orig) || Array.isArray(prop) || (typeof orig === 'object' && orig !== null) || (typeof prop === 'object' && prop !== null)) {
         return JSON.stringify(orig) !== JSON.stringify(prop);
       }
       return String(orig) !== String(prop);
     });
   };
+
+  const PERSON_ARRAY_KEYS = new Set(['trust_tags', 'awards', 'videos', 'publications', 'quick_facts']);
+  const isComplexArrayField = (key) => PERSON_ARRAY_KEYS.has(key) || ORG_ARRAY_KEYS.has(key);
 
   const getArrayVal = (key) => {
     const val = editForm[key] !== undefined ? editForm[key] : (liveProfile?.[key] || []);
@@ -221,6 +339,27 @@ export default function ChangeRequests() {
     if (typeof val === 'string') {
       try { arr = JSON.parse(val); } catch { arr = []; }
     }
+    // contact and social_media are objects, not arrays — render as key-value pairs
+    if ((key === 'contact' || key === 'social_media') && !Array.isArray(arr) && typeof arr === 'object') {
+      const otherObj = (typeof otherVal === 'string' ? (() => { try { return JSON.parse(otherVal); } catch { return {}; } })() : otherVal) || {};
+      return (
+        <div className="cr-compare-array-preview-list" style={{ display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left', width: '100%' }}>
+          {Object.entries(arr).map(([k, v]) => {
+            const otherV = otherObj[k];
+            const changed = JSON.stringify(v) !== JSON.stringify(otherV);
+            return (
+              <div key={k} className="cr-compare-array-preview-item" style={{ fontSize: '13px', lineHeight: 1.5, display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                <span style={{ color: '#94a3b8' }}>•</span>
+                <span className={changed ? (isDeleted ? 'cr-value-deleted' : 'cr-value-added') : ''} style={changed ? undefined : { color: '#334155', fontWeight: 500 }}>
+                  {k.replace(/_/g, ' ')}: {Array.isArray(v) ? v.join(', ') || '—' : String(v || '—')}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
     let otherArr = otherVal || [];
     if (typeof otherVal === 'string') {
       try { otherArr = JSON.parse(otherVal); } catch { otherArr = []; }
@@ -230,7 +369,7 @@ export default function ChangeRequests() {
     if (!Array.isArray(arr) || arr.length === 0) {
       return <span className="cr-value-empty">None (Cleared)</span>;
     }
-    
+
     const otherStrings = new Set(otherArr.map(item => JSON.stringify(item)));
 
     return (
@@ -240,15 +379,36 @@ export default function ChangeRequests() {
           if (key === 'quick_facts') {
             text = `${item.label || 'Fact'}: "${item.value || '—'}" (${item.verified_sources || 0} sources)`;
           } else if (key === 'awards') {
-            text = `${item.year || 'Year'} - ${item.title || 'Title'} (${item.issuer || 'Issuer'}) [${item.tag || 'Verified'}]${item.description ? ` — ${item.description}` : ''}`;
+            text = `${item.year || 'Year'} - ${item.title || 'Title'} (${item.issuer || item.organization || 'Issuer'})${item.description ? ` — ${item.description}` : ''}`;
           } else if (key === 'videos') {
             text = `${item.title || 'Video'} [${item.type || 'Video'}]${item.duration ? ` (${item.duration})` : ''}${item.views ? ` — ${item.views} views` : ''}`;
           } else if (key === 'publications') {
-            text = `[${item.type || 'Publication'}] ${item.title || 'Title'} in ${item.journal || 'Journal'} (${item.date || 'Date'})`;
+            text = typeof item === 'string' ? item
+              : (item.publication_title || item.title)
+                ? `${item.publication_title || item.title}${item.publication_year || item.date ? ` (${item.publication_year || item.date})` : ''}`
+                : JSON.stringify(item);
           } else if (key === 'trust_tags') {
             text = `${item.name || 'Tag'} [${item.type || 'Tag'}]`;
+          } else if (key === 'news_articles') {
+            text = `${item.title || 'Article'}${item.source ? ` — ${item.source}` : ''}`;
+          } else if (key === 'reviews') {
+            text = `${item.source_platform || 'Platform'}: ${item.rating || '?'}★ (${item.review_count || 0} reviews)${item.review_snippet ? ` — "${item.review_snippet}"` : ''}`;
+          } else if (key === 'core_services') {
+            text = typeof item === 'string' ? item : `${item.name || 'Service'}${item.description ? `: ${item.description}` : ''}`;
+          } else if (key === 'leadership') {
+            text = `${item.name || 'Person'} — ${item.role || 'Role'}`;
+          } else if (key === 'trusted_by' || key === 'key_differentiators' || key === 'specializations' || key === 'key_features' || key === 'tech_stack' || key === 'media_and_press') {
+            text = typeof item === 'string' ? item : JSON.stringify(item);
+          } else if (key === 'products') {
+            text = typeof item === 'string' ? item : `${item.name || 'Product'}${item.description ? `: ${item.description}` : ''}`;
+          } else if (key === 'locations') {
+            text = `${item.city || ''}${item.country ? `, ${item.country}` : ''}${item.headquarter ? ' (HQ)' : ''}`;
+          } else if (key === 'similar_orgs') {
+            text = item.name ? `${item.name}${item.followerCount ? ` (${Number(item.followerCount).toLocaleString()} followers)` : ''}` : JSON.stringify(item);
+          } else if (key === 'investor_sources') {
+            text = `${item.platform || 'Platform'}: ${item.url || ''}`;
           } else {
-            text = JSON.stringify(item);
+            text = typeof item === 'string' ? item : JSON.stringify(item);
           }
 
           const isIdentical = otherStrings.has(JSON.stringify(item));
@@ -257,11 +417,7 @@ export default function ChangeRequests() {
 
           if (!isIdentical) {
             itemStyle = undefined;
-            if (isDeleted) {
-              itemClass = 'cr-value-deleted';
-            } else {
-              itemClass = 'cr-value-added';
-            }
+            itemClass = isDeleted ? 'cr-value-deleted' : 'cr-value-added';
           }
 
           return (
@@ -288,13 +444,13 @@ export default function ChangeRequests() {
 
   const getFieldLabel = (key) => {
     const labels = {
-      name: 'Name',
-      role: 'Role',
-      subtitle: 'Subtitle',
-      sector: 'Sector',
-      location: 'Location',
-      active_since: 'Since Year',
-      bio: 'Biography'
+      name: 'Name', role: 'Role', subtitle: 'Subtitle', sector: 'Sector',
+      location: 'Location', active_since: 'Since Year', bio: 'Biography',
+      linkedin_url: 'LinkedIn URL', website_url: 'Website URL',
+      company: 'Company', status: 'Status', trust_tags: 'Trust Tags',
+      awards: 'Awards', videos: 'Videos', publications: 'Publications',
+      quick_facts: 'Quick Facts',
+      ...ORG_FIELD_LABELS,
     };
     return labels[key] || key;
   };
@@ -315,20 +471,50 @@ export default function ChangeRequests() {
       // Extract unique userIds from submissions
       const userIds = [...new Set(fetchedRequests.map(r => r.email?.split('@')[0]))].filter(Boolean);
       if (userIds.length > 0) {
-        const { data: profiles, error: profileError } = await supabase
-          .from('entities_master')
-          .select('user_id, image_url')
-          .in('user_id', userIds);
-        
-        if (!profileError && profiles) {
-          const imageMap = {};
-          profiles.forEach(p => {
+        const [profilesRes, orgEntitiesRes, orgDetailsRes] = await Promise.all([
+          supabase
+            .from('entities_master')
+            .select('user_id, image_url')
+            .in('user_id', userIds),
+          supabase
+            .from('master_organization_entities')
+            .select('user_id, image_url, cropped_profile_picture_url, profile_picture_url')
+            .in('user_id', userIds),
+          supabase
+            .from('organization_details')
+            .select('user_id, cropped_profile_picture_url, profile_picture_url')
+            .in('user_id', userIds)
+        ]);
+
+        const imageMap = {};
+        if (!profilesRes.error && profilesRes.data) {
+          profilesRes.data.forEach(p => {
             if (p.user_id && p.image_url) {
               imageMap[p.user_id] = p.image_url;
             }
           });
-          setProfileImages(imageMap);
         }
+        if (!orgEntitiesRes.error && orgEntitiesRes.data) {
+          orgEntitiesRes.data.forEach(p => {
+            if (p.user_id) {
+              const logo = p.cropped_profile_picture_url || p.profile_picture_url || p.image_url;
+              if (logo) {
+                imageMap[p.user_id] = logo;
+              }
+            }
+          });
+        }
+        if (!orgDetailsRes.error && orgDetailsRes.data) {
+          orgDetailsRes.data.forEach(p => {
+            if (p.user_id) {
+              const logo = p.cropped_profile_picture_url || p.profile_picture_url;
+              if (logo) {
+                imageMap[p.user_id] = logo;
+              }
+            }
+          });
+        }
+        setProfileImages(imageMap);
       }
     } catch (err) {
       toast(`Failed to load requests: ${err.message}`, 'error');
@@ -365,28 +551,138 @@ export default function ChangeRequests() {
     setLiveProfile(null);
     setSidebarCollapsed(false);
     setAnsweredFields({});
-    
+
     const userId = req.email.split('@')[0];
     try {
-      const { data: activeProfile, error } = await supabase
-        .from('entities_master')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (error) throw error;
-      setLiveProfile(activeProfile || null);
-
       const payload = JSON.parse(req.message || '{}');
+      const entityType = payload.entity_type || 'person';
+      const isOrg = entityType === 'organization';
+      setIsOrgRequest(isOrg);
       setSubmittedProposed(payload.proposed || {});
       setComment(payload.admin_comment || '');
 
-      const initialForm = {};
-      if (activeProfile) {
-        Object.keys(activeProfile).forEach(key => {
-          initialForm[key] = activeProfile[key];
-        });
+      const table = isOrg ? 'master_organization_entities' : 'entities_master';
+      const [profileRes, detailsRes] = await Promise.all([
+        supabase
+          .from(table)
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle(),
+        isOrg
+          ? supabase
+              .from('organization_details')
+              .select('profile_picture_url, banner_picture_url, cropped_profile_picture_url, cropped_banner_picture_url')
+              .eq('user_id', userId)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null })
+      ]);
+
+      if (profileRes.error) throw profileRes.error;
+      const activeProfile = profileRes.data;
+      const orgDetails = detailsRes.data;
+
+      let enrichmentData = {};
+      if (isOrg) {
+        const orgId = activeProfile?.user_id || userId;
+        const orgName = activeProfile?.organization_name || payload.original?.organization_name || payload.proposed?.organization_name || '';
+
+        const [newsResult, reviewsResult, liResult, siteDumpResult, investorResult] = await Promise.all([
+          supabase.from('org_news_articles').select('title, url, source, created_at').eq('user_id', orgId).order('created_at', { ascending: false }).limit(6),
+          supabase.from('org_reviews').select('source_platform, rating, review_count, review_snippet, review_url').eq('user_id', orgId),
+          supabase.from('org_linkedin_data').select('raw_data').eq('user_id', orgId).maybeSingle(),
+          supabase.from('organization_site_dump').select('company_data').eq('user_id', orgId).maybeSingle(),
+          supabase.from('org_investor_page').select('source_platform, scraped_data->metadata').eq('user_id', orgId),
+        ]);
+
+        let siteDump = siteDumpResult.data?.company_data || null;
+        if (!siteDump && orgName) {
+          const { data: sdFallback } = await supabase.from('organization_site_dump').select('company_data').ilike('company_name', `%${orgName}%`).limit(1).maybeSingle();
+          siteDump = sdFallback?.company_data || null;
+        }
+
+        let { data: pubsData } = await supabase.from('org_publications').select('publication_title, publication_url, abstract_snippet, publication_year').eq('user_id', orgId).limit(6);
+        if (!pubsData?.length && orgName) {
+          const { data: fallback } = await supabase.from('org_publications').select('publication_title, publication_url, abstract_snippet, publication_year').ilike('organization_name', `%${orgName}%`).limit(6);
+          pubsData = fallback || [];
+        }
+
+        let li = liResult.data?.raw_data;
+        if (typeof li === 'string') { try { li = JSON.parse(li); } catch { li = null; } }
+
+        const specializations = (li?.specialities || []).slice(0, 15);
+        const locations       = (li?.locations || []).filter(l => l.city || l.parsed?.city);
+        const similarOrgs     = (li?.similarOrganizations || []).filter(s => s.name).slice(0, 6);
+
+        const offerings     = siteDump?.offerings || {};
+        const products      = (offerings.products_services || []).filter(p => p.name);
+        const keyFeatures   = (offerings.key_features || []).filter(Boolean).slice(0, 8);
+        const pricingUrls   = (offerings.pricing_pages_urls || []).filter(Boolean);
+        const techStack     = (siteDump?.technical_and_hiring?.tech_stack_mentions || []).filter(Boolean);
+        const siteClients   = (siteDump?.authority_and_trust?.clients || []).filter(Boolean);
+        const siteAwards    = (siteDump?.authority_and_trust?.awards_certifications || []).filter(Boolean);
+        const sitePartners  = (siteDump?.authority_and_trust?.partners || []).filter(Boolean);
+        const contactInfo   = siteDump?.presence_and_contact || null;
+        const extLinks      = siteDump?.external_intelligence_links || {};
+        const socialMedia   = extLinks.social_media || {};
+        const mediaAndPress = (extLinks.media_and_press || []).filter(Boolean);
+        const investorSources = (investorResult.data || []).map(row => ({
+          platform: row.source_platform || 'Unknown',
+          url:      row.metadata?.sourceURL || row.metadata?.url || row.metadata?.['og:url'] || null,
+          desc:     row.metadata?.description || null,
+          ogDesc:   row.metadata?.ogDescription || row.metadata?.['og:description'] || null,
+        })).filter(s => s.url);
+
+        enrichmentData = {
+          specializations,
+          locations,
+          similar_orgs: similarOrgs,
+          products,
+          key_features: keyFeatures,
+          tech_stack: techStack,
+          awards: siteAwards.length > 0 ? siteAwards : undefined,
+          contact: contactInfo,
+          social_media: socialMedia,
+          media_and_press: mediaAndPress,
+          investor_sources: investorSources,
+          reviews: reviewsResult.data || [],
+          news_articles: newsResult.data || [],
+          publications: pubsData || [],
+        };
       }
+
+      // For org requests, merge original snapshot into liveProfile so enrichment
+      // fields (not stored in master table) are available for comparison.
+      const mergedProfile = isOrg
+        ? {
+            ...(payload.original || {}),
+            ...enrichmentData,
+            ...(orgDetails || {}),
+            ...(activeProfile || {}),
+            specializations: activeProfile?.specializations || enrichmentData.specializations || payload.original?.specializations || [],
+            locations: activeProfile?.locations || enrichmentData.locations || payload.original?.locations || [],
+            similar_orgs: activeProfile?.similar_orgs || enrichmentData.similar_orgs || payload.original?.similar_orgs || [],
+            products: activeProfile?.products || enrichmentData.products || payload.original?.products || [],
+            key_features: activeProfile?.key_features || enrichmentData.key_features || payload.original?.key_features || [],
+            tech_stack: activeProfile?.tech_stack || enrichmentData.tech_stack || payload.original?.tech_stack || [],
+            awards: activeProfile?.awards || enrichmentData.awards || payload.original?.awards || [],
+            contact: activeProfile?.contact || enrichmentData.contact || payload.original?.contact || null,
+            social_media: activeProfile?.social_media || enrichmentData.social_media || payload.original?.social_media || {},
+            media_and_press: activeProfile?.media_and_press || enrichmentData.media_and_press || payload.original?.media_and_press || [],
+            investor_sources: activeProfile?.investor_sources || enrichmentData.investor_sources || payload.original?.investor_sources || [],
+            reviews: activeProfile?.reviews || enrichmentData.reviews || payload.original?.reviews || [],
+            news_articles: activeProfile?.news_articles || enrichmentData.news_articles || payload.original?.news_articles || [],
+            publications: activeProfile?.publications || enrichmentData.publications || payload.original?.publications || [],
+            social_followers: activeProfile?.social_followers || payload.original?.social_followers || '',
+          }
+        : (activeProfile || null);
+      setLiveProfile(mergedProfile);
+
+      const initialForm = {};
+      if (mergedProfile) {
+        Object.keys(mergedProfile).forEach(key => { initialForm[key] = mergedProfile[key]; });
+      }
+      // Pre-populate editForm with proposed values so admin sees proposed by default
+      Object.entries(payload.proposed || {}).forEach(([key, val]) => { initialForm[key] = val; });
       setEditForm(initialForm);
     } catch (err) {
       console.error('Error loading request review:', err);
@@ -416,18 +712,21 @@ export default function ChangeRequests() {
     setActionLoading(true);
 
     const userId = selected.email.split('@')[0];
-    const userName = selected.name || userId;
+    const userName = isOrgRequest
+      ? (liveProfile?.organization_name || selected.name || userId)
+      : (selected.name || userId);
     let payload = { original: {}, proposed: {}, admin_comment: '' };
     try { payload = JSON.parse(selected.message); } catch { /* keep default */ }
 
-    const SAFE_FIELDS = [
+    const PERSON_SAFE_FIELDS = [
       'name', 'role', 'subtitle', 'bio', 'location', 'sector', 'company',
       'status', 'active_since', 'linkedin_url', 'website_url', 'trust_tags',
       'awards', 'videos', 'publications', 'quick_facts', 'image_url',
-      'is_premium', 'badge'
+      'is_premium', 'badge',
     ];
+    const safeFields = isOrgRequest ? ORG_SAFE_FIELDS : PERSON_SAFE_FIELDS;
     const finalProposed = {};
-    SAFE_FIELDS.forEach(field => {
+    safeFields.forEach(field => {
       if (editForm[field] !== undefined) {
         finalProposed[field] = editForm[field];
       }
@@ -473,17 +772,176 @@ export default function ChangeRequests() {
     let profileSyncError = null;
     let submissionSyncError = null;
 
-    // --- entities_master update ---
+    const profileTable = isOrgRequest ? 'master_organization_entities' : 'entities_master';
+
+    // For org image fields, separate out what goes to organization_details vs master table
+    let masterProposed = { ...finalProposed };
+    const orgDetailsUpdate = {};
+    if (isOrgRequest && statusType === 'approved') {
+      Object.keys(finalProposed).forEach(f => {
+        if (ORG_DETAILS_IMAGE_FIELDS.has(f)) {
+          orgDetailsUpdate[f] = finalProposed[f];
+          delete masterProposed[f];
+        }
+      });
+      // Delete enrichment fields so they aren't written to master_organization_entities
+      const enrichmentKeys = [
+        'specializations', 'locations', 'similar_orgs', 'products', 'key_features',
+        'tech_stack', 'awards', 'contact', 'social_media', 'media_and_press',
+        'investor_sources', 'reviews', 'news_articles', 'publications'
+      ];
+      enrichmentKeys.forEach(k => {
+        delete masterProposed[k];
+      });
+    }
+
     const profileUpdateData =
-      statusType === 'approved'         ? { ...finalProposed, approval_status: 'approved' } :
+      statusType === 'approved'         ? { ...masterProposed, approval_status: 'approved' } :
       statusType === 'change_requested' ? { approval_status: 'change_requested' } :
-      /* rejected */                      { approval_status: 'approved' }; // keep live profile untouched
-    // --- parallel execution of profile and submission updates ---
-    const profilePromise = updateAdminProfile({ userId, updateData: profileUpdateData, table: 'entities_master' })
+      /* rejected */                      { approval_status: 'approved' };
+    const profilePromise = updateAdminProfile({ userId, updateData: profileUpdateData, table: profileTable })
       .catch(err => {
         profileSyncError = err?.message || (err && typeof err === 'object' ? JSON.stringify(err) : String(err));
         console.error('Profile sync failed error details:', err);
       });
+
+    // Write image fields to organization_details if present
+    if (Object.keys(orgDetailsUpdate).length > 0) {
+      try {
+        await supabase
+          .from('organization_details')
+          .upsert({ user_id: userId, ...orgDetailsUpdate }, { onConflict: 'user_id' });
+      } catch (imgErr) {
+        console.error('Failed to write image fields to organization_details:', imgErr);
+      }
+    }
+
+    // Write organization enrichment data to their respective tables on approval
+    if (isOrgRequest && statusType === 'approved') {
+      const orgId = userId;
+      // 1. Sync specializations & locations to org_linkedin_data
+      if (editForm.specializations !== undefined || editForm.locations !== undefined) {
+        try {
+          const { data: liRow } = await supabase.from('org_linkedin_data').select('raw_data').eq('user_id', orgId).maybeSingle();
+          let existingLi = liRow?.raw_data || {};
+          if (typeof existingLi === 'string') { try { existingLi = JSON.parse(existingLi); } catch { existingLi = {}; } }
+          
+          const specs = editForm.specializations !== undefined ? editForm.specializations : (liveProfile?.specializations || []);
+          const locs = editForm.locations !== undefined ? editForm.locations : (liveProfile?.locations || []);
+
+          await supabase.from('org_linkedin_data').upsert({
+            user_id: orgId,
+            raw_data: {
+              ...existingLi,
+              specialities: Array.isArray(specs) ? specs.filter(Boolean) : [],
+              locations: Array.isArray(locs) ? locs.filter(l => l.city || l.parsed?.city || l.country).map(l => ({
+                city: l.city || l.parsed?.city, country: l.country || l.parsed?.countryFull || l.parsed?.country, headquarter: l.headquarter,
+                parsed: { city: l.city || l.parsed?.city, country: l.country || l.parsed?.countryFull || l.parsed?.country, countryFull: l.country || l.parsed?.countryFull || l.parsed?.country },
+              })) : [],
+            },
+          }, { onConflict: 'user_id' });
+        } catch (err) {
+          console.error('Failed to sync LinkedIn data:', err);
+        }
+      }
+
+      // 2. Sync products, key_features, awards, contact, tech_stack to organization_site_dump
+      if (editForm.products !== undefined || editForm.key_features !== undefined || editForm.awards !== undefined || editForm.contact !== undefined || editForm.tech_stack !== undefined) {
+        try {
+          const { data: sdRow } = await supabase.from('organization_site_dump').select('company_data').eq('user_id', orgId).maybeSingle();
+          let existingSd = sdRow?.company_data || {};
+          if (typeof existingSd === 'string') { try { existingSd = JSON.parse(existingSd); } catch { existingSd = {}; } }
+
+          const prods = editForm.products !== undefined ? editForm.products : (liveProfile?.products || []);
+          const feats = editForm.key_features !== undefined ? editForm.key_features : (liveProfile?.key_features || []);
+          const awds = editForm.awards !== undefined ? editForm.awards : (liveProfile?.awards || []);
+          const cont = editForm.contact !== undefined ? editForm.contact : (liveProfile?.contact || null);
+          const tech = editForm.tech_stack !== undefined ? editForm.tech_stack : (liveProfile?.tech_stack || []);
+
+          await supabase.from('organization_site_dump').upsert({
+            user_id: orgId,
+            company_name: masterProposed.organization_name || liveProfile?.organization_name,
+            company_data: {
+              ...existingSd,
+              offerings: {
+                ...(existingSd.offerings || {}),
+                products_services: Array.isArray(prods) ? prods.filter(p => p.name) : [],
+                key_features: Array.isArray(feats) ? feats.filter(Boolean) : []
+              },
+              technical_and_hiring: {
+                ...(existingSd.technical_and_hiring || {}),
+                tech_stack_mentions: Array.isArray(tech) ? tech.filter(Boolean) : []
+              },
+              authority_and_trust: {
+                ...(existingSd.authority_and_trust || {}),
+                awards_certifications: Array.isArray(awds) ? awds.filter(Boolean) : []
+              },
+              presence_and_contact: cont,
+            },
+          }, { onConflict: 'user_id' });
+        } catch (err) {
+          console.error('Failed to sync organization site dump:', err);
+        }
+      }
+
+      // 3. Sync news_articles to org_news_articles
+      if (editForm.news_articles !== undefined) {
+        try {
+          await supabase.from('org_news_articles').delete().eq('user_id', orgId);
+          const validNews = (editForm.news_articles || []).filter(a => a.title && a.url);
+          if (validNews.length > 0) {
+            await supabase.from('org_news_articles').insert(validNews.map(a => ({
+              user_id: orgId,
+              title: a.title,
+              url: a.url,
+              source: a.source
+            })));
+          }
+        } catch (err) {
+          console.error('Failed to sync news articles:', err);
+        }
+      }
+
+      // 4. Sync publications to org_publications
+      if (editForm.publications !== undefined) {
+        try {
+          await supabase.from('org_publications').delete().eq('user_id', orgId);
+          const validPubs = (editForm.publications || []).filter(p => p.publication_title || p.title);
+          if (validPubs.length > 0) {
+            await supabase.from('org_publications').insert(validPubs.map(p => ({
+              user_id: orgId,
+              publication_title: p.publication_title || p.title,
+              publication_url: p.publication_url || p.url,
+              abstract_snippet: p.abstract_snippet || p.abstract,
+              publication_year: p.publication_year || p.year,
+              organization_name: masterProposed.organization_name || liveProfile?.organization_name
+            })));
+          }
+        } catch (err) {
+          console.error('Failed to sync publications:', err);
+        }
+      }
+
+      // 5. Sync reviews to org_reviews
+      if (editForm.reviews !== undefined) {
+        try {
+          await supabase.from('org_reviews').delete().eq('user_id', orgId);
+          const validReviews = (editForm.reviews || []).filter(r => r.source_platform && r.rating);
+          if (validReviews.length > 0) {
+            await supabase.from('org_reviews').insert(validReviews.map(r => ({
+              user_id: orgId,
+              source_platform: r.source_platform,
+              rating: Number(r.rating) || 0,
+              review_count: r.review_count ? Number(r.review_count) : null,
+              review_snippet: r.review_snippet,
+              review_url: r.review_url
+            })));
+          }
+        } catch (err) {
+          console.error('Failed to sync reviews:', err);
+        }
+      }
+    }
 
     const submissionPromise = updateSubmissionStatus(selected.id, statusType, messagePayload)
       .catch(err => {
@@ -626,7 +1084,10 @@ export default function ChangeRequests() {
   /* ────────────────────────────────────────────────────── */
   if (selected) {
     const userId = selected.email.split('@')[0];
-    const proposedAvatarText = getInitials(getPropVal('name'));
+    const displayName = isOrgRequest
+      ? (liveProfile?.organization_name || selected.name || 'Organization')
+      : (getPropVal('name') || selected.name || 'Profile');
+    const proposedAvatarText = getInitials(displayName);
     const isPremium = liveProfile?.is_premium;
     const badge = liveProfile?.badge;
 
@@ -718,6 +1179,63 @@ export default function ChangeRequests() {
       );
     };
 
+    /* ── Org preview computed values (safe when isOrgRequest is false) ── */
+    const orgBannerUrl    = isOrgRequest ? (getPropVal('cropped_banner_picture_url') || getPropVal('banner_picture_url') || '') : '';
+    const orgLogoUrl      = isOrgRequest ? (getPropVal('cropped_profile_picture_url') || getPropVal('profile_picture_url') || getPropVal('image_url') || '') : '';
+    const orgScore        = isOrgRequest ? (Number(liveProfile?.authority_score) || 0) : 0;
+    const _orgRingR       = 38;
+    const _orgRingCirc    = 2 * Math.PI * _orgRingR;
+    const _orgPct         = Math.min(100, Math.max(0, orgScore));
+    const orgRingDash     = _orgRingCirc - (_orgPct / 100) * _orgRingCirc;
+    const orgRingColor    = orgScore >= 80 ? '#1E3A8A' : orgScore >= 55 ? '#6366f1' : '#94a3b8';
+    const orgCoreServices = isOrgRequest ? getArrayVal('core_services') : [];
+    const orgLeadership   = isOrgRequest ? getArrayVal('leadership') : [];
+    const orgTrustedBy    = isOrgRequest ? getArrayVal('trusted_by').map(x => typeof x === 'string' ? x : x.name || '').filter(Boolean) : [];
+    const orgAwards       = isOrgRequest ? getArrayVal('awards') : [];
+    const orgProducts     = isOrgRequest ? getArrayVal('products') : [];
+    const orgSpecs        = isOrgRequest ? getArrayVal('specializations').map(x => typeof x === 'string' ? x : '').filter(Boolean) : [];
+    const orgKeyFeats     = isOrgRequest ? getArrayVal('key_features').map(x => typeof x === 'string' ? x : '').filter(Boolean) : [];
+    const orgLocations    = isOrgRequest ? getArrayVal('locations') : [];
+    const orgDiffs        = isOrgRequest ? getArrayVal('key_differentiators').map(d => typeof d === 'string' ? d : d.title || d.text || d.description || '').filter(Boolean) : [];
+    const orgHasStory     = isOrgRequest && !!(getPropVal('mission') || getPropVal('vision') || getPropVal('market_positioning') || orgDiffs.length > 0);
+    const orgReviews      = isOrgRequest ? getArrayVal('reviews') : [];
+    const orgNews         = isOrgRequest ? getArrayVal('news_articles') : [];
+    const orgPublications = isOrgRequest ? getArrayVal('publications') : [];
+    const orgContact      = isOrgRequest ? (liveProfile?.contact || null) : null;
+    const orgTechStack    = isOrgRequest ? getArrayVal('tech_stack') : [];
+    const orgSimilarOrgs  = isOrgRequest ? getArrayVal('similar_orgs') : [];
+    const orgInvestorSources = isOrgRequest ? getArrayVal('investor_sources') : [];
+    const orgMediaAndPress = isOrgRequest ? getArrayVal('media_and_press') : [];
+
+    const tracxn = orgInvestorSources.find(s => s.platform === 'Tracxn');
+    const funding = parseFunding(tracxn?.ogDesc || tracxn?.desc);
+
+    const socialMedia = isOrgRequest ? (liveProfile?.social_media || {}) : {};
+    const socialEntries = Object.entries(socialMedia).filter(([, url]) => url).map(([key, url]) => ({
+      key,
+      url,
+      label: key.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())
+    }));
+
+    const orgStats = isOrgRequest ? [
+      { key: 'years_in_business',      raw: getPropVal('years_in_business'),      label: 'Years in Business',  icon: <Calendar size={22} /> },
+      { key: 'key_clients_count',      raw: getPropVal('key_clients_count'),      label: 'Key Clients',        icon: <Users size={22} /> },
+      { key: 'verified_reviews_count', raw: getPropVal('verified_reviews_count'), label: 'Verified Reviews',   icon: <Star size={22} /> },
+      { key: 'awards_count',           raw: getPropVal('awards_count'),           label: 'Awards',             icon: <Award size={22} /> },
+      { key: 'projects_delivered',     raw: getPropVal('projects_delivered'),     label: 'Projects Delivered', icon: <Briefcase size={22} /> },
+      { key: 'media_mentions_count',   raw: getPropVal('media_mentions_count'),   label: 'Media Mentions',     icon: <Newspaper size={22} /> },
+      { key: 'social_followers',       raw: getPropVal('social_followers'),       label: 'Social Followers',   icon: <TrendingUp size={22} /> },
+    ].filter(s => s.raw !== null && s.raw !== undefined && s.raw !== '' && s.raw !== 0) : [];
+
+    const orgSocialLinks  = isOrgRequest ? [
+      (getPropVal('channel_website') || getPropVal('website_url')) ? { key: 'channel_website', label: 'Website',    url: getPropVal('channel_website') || getPropVal('website_url'), bg: '#f1f5f9', color: '#475569', border: '#cbd5e1', icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> } : null,
+      getPropVal('channel_linkedin') ? { key: 'channel_linkedin', label: 'LinkedIn',   url: getPropVal('channel_linkedin'),   bg: '#dbeafe', color: '#0a66c2', border: '#93c5fd', icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg> } : null,
+      getPropVal('channel_x')        ? { key: 'channel_x',        label: 'X',          url: getPropVal('channel_x'),          bg: '#f1f5f9', color: '#111827', border: '#cbd5e1', icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> } : null,
+      getPropVal('channel_youtube')  ? { key: 'channel_youtube',  label: 'YouTube',    url: getPropVal('channel_youtube'),    bg: '#fee2e2', color: '#dc2626', border: '#fca5a5', icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/></svg> } : null,
+      getPropVal('channel_github')   ? { key: 'channel_github',   label: 'GitHub',     url: getPropVal('channel_github'),     bg: '#f3f4f6', color: '#111827', border: '#d1d5db', icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg> } : null,
+      getPropVal('channel_crunchbase')? { key: 'channel_crunchbase', label: 'Crunchbase', url: getPropVal('channel_crunchbase'), bg: '#dcfce7', color: '#16a34a', border: '#86efac', icon: <Database size={15} /> } : null,
+    ].filter(Boolean) : [];
+
     return (
       <div className="cr-page review-mode single-profile-mode animate-fade-in">
         {/* Sticky Header & Action Controls Container */}
@@ -734,15 +1252,15 @@ export default function ChangeRequests() {
               <div className="cr-header-profile-snippet">
                 <div className="cr-mini-avatar">
                   {getPropVal('image_url') || liveProfile?.image_url ? (
-                    <img src={getPropVal('image_url') || liveProfile?.image_url} alt={getPropVal('name')} />
+                    <img src={getPropVal('image_url') || liveProfile?.image_url} alt={displayName} />
                   ) : (
                     <span>{proposedAvatarText}</span>
                   )}
                 </div>
                 <div className="cr-mini-meta">
                   <div className="cr-mini-name">
-                    <span>Reviewing Profile Changes:</span>
-                    <h3>{getPropVal('name') || selected.name}</h3>
+                    <span>Reviewing {isOrgRequest ? 'Organization' : 'Profile'} Changes:</span>
+                    <h3>{displayName}</h3>
                   </div>
                   <div className="cr-mini-subtext">
                     <span className="cr-mini-userid">ID: <strong>{userId}</strong></span>
@@ -873,11 +1391,16 @@ export default function ChangeRequests() {
                 </div>
                 <h3 className="cr-acm-title">{meta.label}</h3>
                 <p className="cr-acm-desc">
-                  {isApprove
-                    ? `This will apply all proposed changes to ${selected?.name || 'the user'}'s live profile immediately.`
-                    : isRequest
-                      ? `This will send feedback to ${selected?.name || 'the user'} and request adjustments.`
-                      : `This will decline the proposed changes. The live profile will remain unchanged.`}
+                  {(() => {
+                    const displayName = isOrgRequest
+                      ? (liveProfile?.organization_name || selected?.name || 'the organization')
+                      : (selected?.name || 'the user');
+                    return isApprove
+                      ? `This will apply all proposed changes to ${displayName}'s live profile immediately.`
+                      : isRequest
+                        ? `This will send feedback to ${displayName} and request adjustments.`
+                        : `This will decline the proposed changes. The live profile will remain unchanged.`;
+                  })()}
                 </p>
 
                 {/* Form fields inside modal */}
@@ -973,6 +1496,698 @@ export default function ChangeRequests() {
           
           {/* Profile Preview Pane (Left side) */}
           <div className="cr-profile-preview-pane">
+
+            {/* ── Org Profile Preview ───────────────────────── */}
+            {isOrgRequest && (
+              <div className="op-page cr-org-profile-preview" style={{ background: 'transparent', minHeight: 'auto' }}>
+
+                {/* Hero Banner — rendered directly, no wrapper so CSS overlap works */}
+                <div
+                  className={`op-hero${isFieldChanged('banner_picture_url') || isFieldChanged('cropped_banner_picture_url') ? ' cr-field-changed-banner' : ''}`}
+                  style={{ cursor: (isFieldChanged('banner_picture_url') || isFieldChanged('cropped_banner_picture_url')) ? 'pointer' : 'default' }}
+                  onClick={() => { if (isFieldChanged('banner_picture_url') || isFieldChanged('cropped_banner_picture_url')) setActiveChangeField('banner_picture_url'); }}
+                  title={(isFieldChanged('banner_picture_url') || isFieldChanged('cropped_banner_picture_url')) ? 'Click to compare cover banner change' : undefined}
+                >
+                  {orgBannerUrl
+                    ? <img src={orgBannerUrl} alt="Organization Cover" className="op-hero__img" />
+                    : <div className="op-hero__img" />}
+                  <div className="op-hero__overlay" />
+                  {(isFieldChanged('banner_picture_url') || isFieldChanged('cropped_banner_picture_url')) && (
+                    <span className="cr-inline-change-badge" style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}>
+                      <RefreshCw size={10} style={{ marginRight: 4 }} />Compare &amp; Edit
+                    </span>
+                  )}
+                </div>
+
+                {/* Identity Header */}
+                <section className="op-header-section">
+                  <div className="op-container">
+                    <div className="op-header-card">
+                      <div className="op-header-left">
+
+                        {/* Logo + badge */}
+                        <div className="op-header-logo-row">
+                          <div
+                            className={`op-org-logo${isFieldChanged('profile_picture_url') || isFieldChanged('cropped_profile_picture_url') ? ' cr-field-changed-logo' : ''}`}
+                            style={{ cursor: (isFieldChanged('profile_picture_url') || isFieldChanged('cropped_profile_picture_url')) ? 'pointer' : 'default' }}
+                            onClick={() => { if (isFieldChanged('profile_picture_url') || isFieldChanged('cropped_profile_picture_url')) setActiveChangeField('profile_picture_url'); }}
+                          >
+                            {orgLogoUrl ? (
+                              <img src={orgLogoUrl} alt={getPropVal('organization_name')}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }}
+                                onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling && (e.target.nextSibling.style.display = 'flex'); }}
+                              />
+                            ) : null}
+                            <span style={{ display: orgLogoUrl ? 'none' : 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                              {proposedAvatarText}
+                            </span>
+                          </div>
+                          <div className="op-header-badges">
+                            <span className="op-badge op-badge--verified">
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                              21NEWS VERIFIED
+                            </span>
+                          </div>
+                        </div>
+
+                        {renderClickableField('organization_name', 'Organization Name',
+                          <h1 className="op-org-name">{getPropVal('organization_name') || '—'}</h1>
+                        )}
+
+                        {getPropVal('tagline') && renderClickableField('tagline', 'Tagline',
+                          <p className="op-org-tagline">{getPropVal('tagline')}</p>
+                        )}
+
+                        {getPropVal('description') && renderClickableField('description', 'Description',
+                          <div className="op-org-desc">
+                            {renderBiographyWords(liveProfile?.description, getPropVal('description'), true)}
+                          </div>
+                        )}
+
+                        <div className="op-meta-row">
+                          {getPropVal('industry')    && renderClickableField('industry',     'Industry',     <span className="op-meta-item"><Building2 size={14} />{getPropVal('industry')}</span>)}
+                          {getPropVal('location')    && renderClickableField('location',     'Location',     <span className="op-meta-item"><MapPin size={14} />{getPropVal('location')}</span>)}
+                          {getPropVal('founded_year')&& renderClickableField('founded_year', 'Founded Year', <span className="op-meta-item"><Calendar size={14} />Founded {getPropVal('founded_year')}</span>)}
+                          {getPropVal('team_size')   && renderClickableField('team_size',    'Team Size',    <span className="op-meta-item"><Users size={14} />Team {getPropVal('team_size')}</span>)}
+                        </div>
+
+                        {/* Social pills */}
+                        {orgSocialLinks.length > 0 && (
+                          <div className="op-social-links" style={{ marginTop: 16, flexWrap: 'wrap', gap: 8 }}>
+                            {orgSocialLinks.map((link) => (
+                              <div key={link.key}>
+                                {renderClickableField(link.key, link.label,
+                                  <a href={link.url} target="_blank" rel="noopener noreferrer"
+                                    className="op-social-pill"
+                                    style={{ backgroundColor: link.bg, borderColor: link.border, color: link.color }}>
+                                    <span className="op-social-pill__icon">{link.icon}</span>
+                                    <span className="op-social-pill__label">{link.label}</span>
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Header action buttons */}
+                        <div className="op-header-actions" style={{ marginTop: 14 }}>
+                          {(getPropVal('channel_website') || getPropVal('website_url')) && (
+                            <a href={getPropVal('channel_website') || getPropVal('website_url')} target="_blank" rel="noopener noreferrer" className="op-btn op-btn--secondary">
+                              <Globe size={15} /> Visit Website
+                            </a>
+                          )}
+                          {liveProfile?.email_id && (
+                            <a href={`mailto:${liveProfile.email_id}`} className="op-btn op-btn--secondary">
+                              <Mail size={15} /> Contact
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Trust Panel */}
+                      <div className="op-trust-panel">
+                        <div className="op-trust-panel__title">Trust &amp; Verification</div>
+                        <ul className="op-trust-panel__list">
+                          {[
+                            { label: 'Verified Business', icon: <CheckCircle size={15} /> },
+                            { label: 'Active Company',    icon: <Zap size={15} /> },
+                            { label: 'Human Reviewed',   icon: <UserCheck size={15} /> },
+                          ].map((item, i) => (
+                            <li key={i} className="op-trust-panel__item">
+                              <span className="op-trust-panel__icon">{item.icon}</span>
+                              <span>{item.label}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="op-trust-panel__score-wrap">
+                          <div className="op-authority-ring">
+                            <svg width="100" height="100" viewBox="0 0 100 100">
+                              <circle cx="50" cy="50" r={_orgRingR} fill="none" stroke="#e0e7ff" strokeWidth="8" />
+                              <circle cx="50" cy="50" r={_orgRingR} fill="none"
+                                stroke={orgRingColor} strokeWidth="8"
+                                strokeDasharray={`${_orgRingCirc}`}
+                                strokeDashoffset={orgRingDash}
+                                strokeLinecap="round"
+                                transform="rotate(-90 50 50)"
+                              />
+                            </svg>
+                            <div className="op-authority-ring__center">
+                              <span className="op-authority-ring__score">{orgScore || '—'}</span>
+                              <span className="op-authority-ring__sub">/ 100</span>
+                            </div>
+                          </div>
+                          <span className="op-trust-panel__score-label">Authority Score</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Credibility Snapshot */}
+                {orgStats.length > 0 && (
+                  <section className="op-section op-stats-section">
+                    <div className="op-container">
+                      <h2 className="op-section-title">Company Credibility Snapshot</h2>
+                      <div className="op-stats-grid">
+                        {orgStats.map((s, i) => (
+                          <div key={i} className={`op-stat-card op-stat-card--${i % 5}`}>
+                            {renderClickableField(s.key, s.label,
+                              <>
+                                <div className="op-stat-card__icon">{s.icon}</div>
+                                <div className="op-stat-card__value">{s.raw}</div>
+                                <div className="op-stat-card__label">{s.label}</div>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Company Story */}
+                {orgHasStory && (
+                  <section className="op-section op-story-section">
+                    <div className="op-container">
+                      <h2 className="op-section-title">Company Story</h2>
+                      <p className="op-section-subtitle">Purpose, vision and what makes this company unique</p>
+                      {(getPropVal('mission') || getPropVal('vision')) && (
+                        <div className="op-story-mv-row">
+                          {getPropVal('mission') && renderClickableField('mission', 'Mission',
+                            <div className="op-story-mv-card op-story-mv-card--mission">
+                              <div className="op-story-mv-card__glow" />
+                              <div className="op-story-mv-card__icon"><Target size={20} /></div>
+                              <span className="op-story-mv-card__label">Mission</span>
+                              <p className="op-story-mv-card__text">{getPropVal('mission')}</p>
+                            </div>
+                          )}
+                          {getPropVal('vision') && renderClickableField('vision', 'Vision',
+                            <div className="op-story-mv-card op-story-mv-card--vision">
+                              <div className="op-story-mv-card__glow" />
+                              <div className="op-story-mv-card__icon"><Eye size={20} /></div>
+                              <span className="op-story-mv-card__label">Vision</span>
+                              <p className="op-story-mv-card__text">{getPropVal('vision')}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {getPropVal('market_positioning') && renderClickableField('market_positioning', 'Market Positioning',
+                        <div className="op-story-market">
+                          <div className="op-story-market__bar" />
+                          <div className="op-story-market__inner">
+                            <span className="op-story-market__label"><TrendingUp size={13} />Market Positioning</span>
+                            <p className="op-story-market__text">{getPropVal('market_positioning')}</p>
+                          </div>
+                        </div>
+                      )}
+                      {orgDiffs.length > 0 && renderClickableField('key_differentiators', 'Key Differentiators',
+                        <div className="op-story-diff-section">
+                          <span className="op-story-diff-section__title">Key Differentiators</span>
+                          <div className="op-story-diff-grid">
+                            {orgDiffs.map((d, i) => (
+                              <div key={i} className="op-story-diff-card">
+                                <div className="op-story-diff-card__num">{String(i + 1).padStart(2, '0')}</div>
+                                <div className="op-story-diff-card__check"><Check size={11} /></div>
+                                <p className="op-story-diff-card__text">{d}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Core Services */}
+                {orgCoreServices.length > 0 && (
+                  <section className="op-section op-services-section">
+                    <div className="op-container">
+                      <h2 className="op-section-title">Core Services</h2>
+                      <p className="op-section-subtitle">{orgCoreServices.length} service{orgCoreServices.length !== 1 ? 's' : ''} offered</p>
+                      {renderClickableField('core_services', 'Core Services',
+                        <div className="op-services-grid">
+                          {orgCoreServices.map((svc, i) => (
+                            <div key={i} className="op-service-card">
+                              <div className="op-service-card__num">{String(i + 1).padStart(2, '0')}</div>
+                              <h3 className="op-service-card__title">{svc.name || svc.title || svc}</h3>
+                              <p className="op-service-card__desc">{svc.description || svc.desc || ''}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Products & Offerings */}
+                {orgProducts.length > 0 && (
+                  <section className="op-section op-products-section">
+                    <div className="op-container">
+                      <h2 className="op-section-title">Products &amp; Offerings</h2>
+                      <p className="op-section-subtitle">{orgProducts.length} product{orgProducts.length !== 1 ? 's' : ''} &amp; services</p>
+                      {renderClickableField('products', 'Products & Offerings',
+                        <div className="op-products-grid">
+                          {orgProducts.map((p, i) => (
+                            <div key={i} className="op-product-card">
+                              <div className="op-product-card__index">{String(i + 1).padStart(2, '0')}</div>
+                              <h3 className="op-product-card__name">{p.name || p}</h3>
+                              <p className="op-product-card__desc">{p.description || ''}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {orgKeyFeats.length > 0 && renderClickableField('key_features', 'Key Features',
+                        <div className="op-products-features" style={{ marginTop: 16 }}>
+                          <span className="op-products-features__label">Key Features</span>
+                          <div className="op-products-features__chips">
+                            {orgKeyFeats.map((f, i) => (
+                              <span key={i} className="op-products-feature-chip"><Check size={11} /> {f}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {orgTechStack.length > 0 && renderClickableField('tech_stack', 'Tech Stack',
+                        <div className="op-products-tech" style={{ marginTop: 16 }}>
+                          <span className="op-products-features__label">Tech Stack</span>
+                          <div className="op-products-features__chips">
+                            {orgTechStack.map((t, i) => (
+                              <span key={i} className="op-products-tech-chip">{t}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Specializations */}
+                {orgSpecs.length > 0 && (
+                  <section className="op-section op-tags-section">
+                    <div className="op-container">
+                      <h2 className="op-section-title">Specializations</h2>
+                      <p className="op-section-subtitle">Core capabilities and areas of expertise</p>
+                      {renderClickableField('specializations', 'Specializations',
+                        <div className="op-tags-wrap">
+                          {orgSpecs.map((t, i) => {
+                            const palettes = [
+                              { bg: '#eef2ff', color: '#3730a3', border: '#c7d2fe' },
+                              { bg: '#f0fdf4', color: '#065f46', border: '#bbf7d0' },
+                              { bg: '#fff7ed', color: '#9a3412', border: '#fed7aa' },
+                              { bg: '#fdf4ff', color: '#7e22ce', border: '#e9d5ff' },
+                              { bg: '#f0f9ff', color: '#0c4a6e', border: '#bae6fd' },
+                              { bg: '#fff1f2', color: '#9f1239', border: '#fecdd3' },
+                            ];
+                            const pal = palettes[i % palettes.length];
+                            return (
+                              <span key={i} className="op-tag" style={{ background: pal.bg, color: pal.color, borderColor: pal.border }}>
+                                <Check size={11} />{t}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Leadership */}
+                {orgLeadership.length > 0 && (
+                  <section className="op-section">
+                    <div className="op-container">
+                      <h2 className="op-section-title">Leadership &amp; Key People</h2>
+                      <p className="op-section-subtitle">Verified individuals connected to this organization</p>
+                      {renderClickableField('leadership', 'Leadership',
+                        <div className="op-leadership-grid">
+                          {orgLeadership.map((person, i) => {
+                            const initials = (person.name || '').split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'NA';
+                            return (
+                              <div key={i} className="op-lcard">
+                                <div className="op-lcard__img-wrap">
+                                  {(person.cropped_photo_url || person.image_url || person.image) ? (
+                                    <img src={person.cropped_photo_url || person.image_url || person.image} alt={person.name} className="op-lcard__img"
+                                      onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling && (e.target.nextSibling.style.display = 'flex'); }} />
+                                  ) : null}
+                                  <div className="op-lcard__img-fallback" style={{ display: (person.cropped_photo_url || person.image_url || person.image) ? 'none' : 'flex' }}>
+                                    <span>{initials}</span>
+                                  </div>
+                                  <span className="op-lcard__verified">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+                                    21NEWS Verified
+                                  </span>
+                                </div>
+                                <h3 className="op-lcard__name">{person.name}</h3>
+                                {person.role      && <p className="op-lcard__role">{person.role}</p>}
+                                {person.expertise && <p className="op-lcard__sector">{person.expertise}</p>}
+                                {Number(person.score) > 0 && (
+                                  <div className="op-lcard__score">
+                                    <Star size={16} className="op-lcard__star" />
+                                    <span>{person.score}</span>
+                                  </div>
+                                )}
+                                <div className="op-lcard__footer">
+                                  <span className="op-lcard__btn op-lcard__btn--disabled">Profile Preview</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Trusted By */}
+                {orgTrustedBy.length > 0 && (
+                  <section className="op-section op-trusted-parties-section">
+                    <div className="op-container">
+                      <div className="op-trusted-parties-heading">
+                        <h2 className="op-section-title">Trusted By</h2>
+                        <span className="op-trusted-parties-count"><ShieldCheck size={13} />{orgTrustedBy.length} verified organizations</span>
+                      </div>
+                      <p className="op-section-subtitle">Organizations, clients and partners that trust this company</p>
+                      {renderClickableField('trusted_by', 'Trusted By',
+                        <div className="op-trusted-parties-grid" style={{ gridTemplateColumns: `repeat(${Math.min(orgTrustedBy.length, 4)}, 1fr)` }}>
+                          {orgTrustedBy.map((name, i) => (
+                            <div key={i} className="op-trusted-party-card">
+                              <div className="op-trusted-party-card__accent" />
+                              <div className="op-trusted-party-card__icon"><Building2 size={16} /></div>
+                              <span className="op-trusted-party-card__name">{name}</span>
+                              <span className="op-trusted-party-card__check"><Check size={9} /></span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Awards */}
+                {orgAwards.length > 0 && (
+                  <section className="op-section op-awards-section">
+                    <div className="op-container">
+                      <h2 className="op-section-title">Awards &amp; Recognition</h2>
+                      <p className="op-section-subtitle">Verified achievements and industry recognition</p>
+                      {renderClickableField('awards', 'Awards',
+                        <div className="op-awards-grid">
+                          {orgAwards.map((item, i) => {
+                            const text   = typeof item === 'string' ? item : `${item.title || ''}${item.year ? ` (${item.year})` : ''}${item.issuer || item.organization ? ` — ${item.issuer || item.organization}` : ''}`;
+                            const yr     = typeof item === 'object' ? item.year : ((text.match(/\b(20\d{2}|19\d{2})\b/) || [])[0] || null);
+                            const issuer = typeof item === 'object' ? (item.issuer || item.organization || null) : null;
+                            return (
+                              <div key={i} className="op-award-card">
+                                <div className="op-award-card__icon"><Award size={20} /></div>
+                                <div className="op-award-card__body">
+                                  <p className="op-award-card__text">{text}</p>
+                                  <div className="op-award-card__meta">
+                                    {yr     && <span className="op-award-card__year">{yr}</span>}
+                                    {issuer && <span className="op-award-card__platform">{issuer}</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Office Locations */}
+                {orgLocations.length > 0 && (
+                  <section className="op-section op-locations-section">
+                    <div className="op-container">
+                      <h2 className="op-section-title">Office Locations</h2>
+                      {renderClickableField('locations', 'Office Locations',
+                        <div className="op-locations-grid">
+                          {[...orgLocations].sort((a, b) => {
+                            const aHQ = a.headquarter === true || a.headquarter === 'true';
+                            const bHQ = b.headquarter === true || b.headquarter === 'true';
+                            return bHQ - aHQ;
+                          }).map((loc, i) => {
+                            const city    = loc.parsed?.city || loc.city || '';
+                            const country = loc.parsed?.countryFull || loc.parsed?.country || loc.country || '';
+                            const isHQ    = loc.headquarter === 'true' || loc.headquarter === true;
+                            return (
+                              <div key={i} className={`op-location-card${isHQ ? ' op-location-card--hq' : ''}`}>
+                                {isHQ && <span className="op-location-card__hq">HQ</span>}
+                                <MapPin size={20} className="op-location-card__pin" />
+                                <div className="op-location-card__city">{city || country}</div>
+                                {city && country && <div className="op-location-card__country">{country}</div>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+
+
+                {/* Reviews & Ratings */}
+                {orgReviews.length > 0 && (
+                  <section className="op-section op-reviews-section">
+                    <div className="op-container">
+                      <h2 className="op-section-title">Reviews &amp; Ratings</h2>
+                      <p className="op-section-subtitle">Aggregated from verified third-party review platforms</p>
+                      {renderClickableField('reviews', 'Reviews',
+                        <div className="op-reviews-grid">
+                          {orgReviews.map((r, i) => {
+                            const platformColor = { Glassdoor: '#0caa41', G2: '#ff492c', Trustpilot: '#00b67a', Google: '#4285f4' };
+                            return (
+                              <div key={i} className="op-review-card">
+                                <div className="op-review-card__platform" style={{ color: platformColor[r.source_platform] || 'var(--primary-blue)' }}>
+                                  {r.source_platform}
+                                </div>
+                                <div className="op-review-card__rating-row">
+                                  <span className="op-review-card__score">{r.rating}</span>
+                                  <div className="op-review-card__stars">
+                                    {[...Array(5)].map((_, j) => (
+                                      <Star key={j} size={13} fill={j < Math.round(Number(r.rating)) ? '#f59e0b' : 'none'} color="#f59e0b" />
+                                    ))}
+                                  </div>
+                                </div>
+                                {r.review_count && <div className="op-review-card__count">{Number(r.review_count).toLocaleString()} reviews</div>}
+                                {r.review_snippet && <p className="op-review-card__snippet">{r.review_snippet.length > 110 ? r.review_snippet.slice(0, 110) + '…' : r.review_snippet}</p>}
+                                {r.review_url && <span className="op-review-card__link">View on {r.source_platform} <ExternalLink size={11} /></span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* News & Press Coverage */}
+                {orgNews.length > 0 && (
+                  <section className="op-section op-news-section">
+                    <div className="op-container">
+                      <h2 className="op-section-title">News &amp; Press Coverage</h2>
+                      {renderClickableField('news_articles', 'News Articles',
+                        <div className="op-news-grid">
+                          {orgNews.map((a, i) => (
+                            <a key={i} href={a.url} target="_blank" rel="noopener noreferrer" className="op-news-card">
+                              <div className="op-news-card__source"><Newspaper size={12} />{a.source}</div>
+                              <h3 className="op-news-card__title">{a.title}</h3>
+                              <div className="op-news-card__footer">
+                                <span className="op-news-card__read">Read article <ExternalLink size={11} /></span>
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Funding & Investor Intelligence */}
+                {orgInvestorSources.length > 0 && (
+                  <section className="op-section op-investor-section">
+                    <div className="op-container">
+                      <h2 className="op-section-title">Funding &amp; Investor Intelligence</h2>
+                      <p className="op-section-subtitle">Sourced from leading startup intelligence platforms</p>
+                      {renderClickableField('investor_sources', 'Funding & Investor Intelligence',
+                        <>
+                          {funding && (
+                            <div className="op-investor-summary" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '24px' }}>
+                              {funding.amount && <div className="op-investor-summary__stat" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><BadgeDollarSign size={22} style={{ color: '#1e3a8a' }} /><div><div className="op-investor-summary__val" style={{ fontWeight: 700, fontSize: '18px' }}>{funding.amount}</div><div className="op-investor-summary__lbl" style={{ fontSize: '12px', color: '#64748b' }}>Total Raised</div></div></div>}
+                              {funding.rounds && <div className="op-investor-summary__stat" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><BarChart2 size={22} style={{ color: '#1e3a8a' }} /><div><div className="op-investor-summary__val" style={{ fontWeight: 700, fontSize: '18px' }}>{funding.rounds}</div><div className="op-investor-summary__lbl" style={{ fontSize: '12px', color: '#64748b' }}>Funding Rounds</div></div></div>}
+                              {funding.investors && <div className="op-investor-summary__stat" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Users size={22} style={{ color: '#1e3a8a' }} /><div><div className="op-investor-summary__val" style={{ fontWeight: 700, fontSize: '18px' }}>{funding.investors}</div><div className="op-investor-summary__lbl" style={{ fontSize: '12px', color: '#64748b' }}>Investors</div></div></div>}
+                            </div>
+                          )}
+                          <div className="op-investor-sources-grid">
+                            {orgInvestorSources.map((src, i) => {
+                              const style = INVESTOR_PLATFORM_STYLE[src.platform] || { bg: '#eef2ff', color: '#1E3A8A', border: '#bfdbfe' };
+                              const desc = (src.ogDesc || src.desc || '').slice(0, 160);
+                              return (
+                                <a key={i} href={src.url} target="_blank" rel="noopener noreferrer" className="op-investor-source-card" style={{ '--inv-bg': style.bg, '--inv-color': style.color, '--inv-border': style.border }}>
+                                  <div className="op-investor-source-card__platform">{src.platform}</div>
+                                  {desc && <p className="op-investor-source-card__desc">{desc}{desc.length >= 160 ? '…' : ''}</p>}
+                                  <span className="op-investor-source-card__cta">View on {src.platform} <ExternalLink size={11} /></span>
+                                </a>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Publications & Resources */}
+                {orgPublications.length > 0 && (
+                  <section className="op-section op-pubs-section">
+                    <div className="op-container">
+                      <h2 className="op-section-title">Publications &amp; Resources</h2>
+                      {renderClickableField('publications', 'Publications',
+                        <div className="op-pubs-list">
+                          {orgPublications.map((p, i) => (
+                            <a key={i} href={p.publication_url} target="_blank" rel="noopener noreferrer" className="op-pub-item">
+                              <div className="op-pub-item__icon"><Database size={16} /></div>
+                              <div className="op-pub-item__body">
+                                <h3 className="op-pub-item__title">{p.publication_title}</h3>
+                                {p.abstract_snippet && (
+                                  <p className="op-pub-item__abstract">
+                                    {p.abstract_snippet.length > 130 ? p.abstract_snippet.slice(0, 130) + '…' : p.abstract_snippet}
+                                  </p>
+                                )}
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Contact & Presence */}
+                {((orgContact && (orgContact.headquarters || orgContact.phone_numbers?.length || orgContact.contact_emails?.length || orgContact.support_portal_url)) || orgMediaAndPress.length > 0) && (
+                  <section className="op-section op-contact-section">
+                    <div className="op-container">
+                      <h2 className="op-section-title">Contact &amp; Presence</h2>
+                      <p className="op-section-subtitle">Official contact details and external presence</p>
+                      {renderClickableField('contact', 'Contact & Presence',
+                        <>
+                          {orgContact && (orgContact.headquarters || orgContact.phone_numbers?.length || orgContact.contact_emails?.length || orgContact.support_portal_url) && (
+                            <div className="op-contact-grid">
+                              {orgContact.headquarters && (
+                                <div className="op-contact-card op-contact-card--loc-border">
+                                  <div className="op-contact-card__icon op-contact-card__icon--loc"><Building2 size={22} /></div>
+                                  <div className="op-contact-card__body">
+                                    <span className="op-contact-card__label">Headquarters</span>
+                                    <span className="op-contact-card__value">{orgContact.headquarters}</span>
+                                  </div>
+                                </div>
+                              )}
+                              {orgContact.phone_numbers?.filter(Boolean).map((ph, i) => (
+                                <a key={i} href={`tel:${ph}`} className="op-contact-card op-contact-card--link op-contact-card--phone-border">
+                                  <div className="op-contact-card__icon op-contact-card__icon--phone"><Phone size={22} /></div>
+                                  <div className="op-contact-card__body">
+                                    <span className="op-contact-card__label">Phone</span>
+                                    <span className="op-contact-card__value">{ph}</span>
+                                  </div>
+                                </a>
+                              ))}
+                              {orgContact.contact_emails?.filter(Boolean).map((em, i) => (
+                                <a key={i} href={`mailto:${em}`} className="op-contact-card op-contact-card--link op-contact-card--mail-border">
+                                  <div className="op-contact-card__icon op-contact-card__icon--mail"><Mail size={22} /></div>
+                                  <div className="op-contact-card__body">
+                                    <span className="op-contact-card__label">Email</span>
+                                    <span className="op-contact-card__value">{em}</span>
+                                  </div>
+                                </a>
+                              ))}
+                              {orgContact.support_portal_url && (
+                                <a href={orgContact.support_portal_url} target="_blank" rel="noopener noreferrer" className="op-contact-card op-contact-card--link op-contact-card--portal-border">
+                                  <div className="op-contact-card__icon op-contact-card__icon--portal"><Globe size={22} /></div>
+                                  <div className="op-contact-card__body">
+                                    <span className="op-contact-card__label">Support Portal</span>
+                                    <span className="op-contact-card__value op-contact-card__value--url">
+                                      {orgContact.support_portal_url.replace(/^https?:\/\//, '').split('/')[0]}
+                                      <ExternalLink size={11} />
+                                    </span>
+                                  </div>
+                                </a>
+                              )}
+                            </div>
+                          )}
+                          {orgMediaAndPress.length > 0 && (
+                            <div className="op-contact-press" style={{ marginTop: 20 }}>
+                              <span className="op-contact-press__label"><Newspaper size={13} />Press &amp; Media</span>
+                              <div className="op-contact-press__links">
+                                {orgMediaAndPress.map((url, i) => {
+                                  const host = url.replace(/^https?:\/\//, '').split('/')[0];
+                                  return <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="op-contact-press__pill">{host} <ExternalLink size={10} /></a>;
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                {/* Connect & Follow */}
+                {orgSocialLinks.length > 0 && (
+                  <section className="op-section">
+                    <div className="op-container">
+                      <div className="op-social-panel">
+                        <div className="op-social-panel__header">
+                          <div>
+                            <h3 className="op-social-panel__title">Connect &amp; Follow</h3>
+                            <p className="op-social-panel__subtitle">Follow through official websites, social channels, and media platforms.</p>
+                          </div>
+                          <span className="op-social-panel__verified-badge"><CheckCircle size={13} />Verified Channels</span>
+                        </div>
+                        <div className="op-social-links">
+                          {orgSocialLinks.map((link) => (
+                            <a key={link.key} href={link.url} target="_blank" rel="noopener noreferrer"
+                              className="op-social-pill"
+                              style={{ backgroundColor: link.bg, borderColor: link.border, color: link.color }}>
+                              <span className="op-social-pill__icon">{link.icon}</span>
+                              <span className="op-social-pill__label">{link.label}</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Social Channels / Social Media Section */}
+                {socialEntries.length > 0 && (
+                  <section className="op-section op-social-extra-section">
+                    <div className="op-container">
+                      <h2 className="op-section-title">Social Channels</h2>
+                      <p className="op-section-subtitle">Verified social media presence across platforms</p>
+                      {renderClickableField('social_media', 'Social Channels',
+                        <div className="op-social-extra-grid">
+                          {socialEntries.map(({ key, url, label }) => {
+                            const col = SOCIAL_COLOR_MAP[key] || { bg: '#eef2ff', color: '#1E3A8A' };
+                            return (
+                              <a key={key} href={url} target="_blank" rel="noopener noreferrer" className="op-social-extra-card" style={{ '--sc-bg': col.bg, '--sc-color': col.color }}>
+                                <div className="op-social-extra-card__icon">{SOCIAL_ICON_MAP[key] || <Globe size={17} />}</div>
+                                <div className="op-social-extra-card__info">
+                                  <span className="op-social-extra-card__platform">{label}</span>
+                                  <span className="op-social-extra-card__url">{url.replace(/^https?:\/\//, '').replace(/\/$/, '').slice(0, 38)}</span>
+                                </div>
+                                <ExternalLink size={13} className="op-social-extra-card__ext" />
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+              </div>
+            )}
+
+            {/* ── Person Profile Preview ────────────────────── */}
+            {!isOrgRequest && (
             <div className="cr-single-profile-workspace">
               <div className="profile-page" style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)', padding: '0 0 40px' }}>
             <section className="profile-hero">
@@ -1407,7 +2622,9 @@ export default function ChangeRequests() {
 
           </div>
         </div>
-      </div>
+            )} {/* end !isOrgRequest person preview */}
+
+          </div> {/* end cr-profile-preview-pane */}
 
       {/* Audit & Changes Index Sidebar (Right side) */}
       <div className={`cr-audit-index-sidebar ${sidebarCollapsed ? 'cr-audit-index-sidebar--collapsed' : ''}`}>
@@ -1535,11 +2752,13 @@ export default function ChangeRequests() {
                     <span className="cr-compare-label">Current Live on Site</span>
                     <div className="cr-compare-value">
                       {liveProfile?.[activeChangeField] !== undefined && liveProfile?.[activeChangeField] !== null ? (
-                        activeChangeField === 'bio'
-                          ? renderBiographyWords(liveProfile?.bio, getPropVal(activeChangeField), false)
-                          : ['trust_tags', 'awards', 'videos', 'publications', 'quick_facts'].includes(activeChangeField)
-                            ? renderArrayValuePreview(activeChangeField, liveProfile[activeChangeField], submittedProposed[activeChangeField], true)
-                            : <span className="cr-value-deleted">{String(liveProfile[activeChangeField])}</span>
+                        ORG_DETAILS_IMAGE_FIELDS.has(activeChangeField) || activeChangeField === 'image_url'
+                          ? <img src={liveProfile[activeChangeField]} alt="current" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 6, objectFit: 'cover' }} />
+                          : ['bio', 'description', 'mission', 'vision', 'market_positioning'].includes(activeChangeField)
+                            ? renderBiographyWords(liveProfile?.[activeChangeField], getPropVal(activeChangeField), false)
+                            : isComplexArrayField(activeChangeField)
+                              ? renderArrayValuePreview(activeChangeField, liveProfile[activeChangeField], submittedProposed[activeChangeField], true)
+                              : <span className="cr-value-deleted">{String(liveProfile[activeChangeField])}</span>
                       ) : (
                         <span className="cr-value-empty">None (Not set)</span>
                       )}
@@ -1551,11 +2770,13 @@ export default function ChangeRequests() {
                     <span className="cr-compare-label">User's Proposed Change</span>
                     <div className="cr-compare-value">
                       {submittedProposed?.[activeChangeField] !== undefined && submittedProposed?.[activeChangeField] !== null ? (
-                        activeChangeField === 'bio'
-                          ? renderBiographyWords(liveProfile?.bio, submittedProposed?.[activeChangeField], true)
-                          : ['trust_tags', 'awards', 'videos', 'publications', 'quick_facts'].includes(activeChangeField)
-                            ? renderArrayValuePreview(activeChangeField, submittedProposed[activeChangeField], liveProfile[activeChangeField], false)
-                            : <span className="cr-value-added">{String(submittedProposed[activeChangeField])}</span>
+                        ORG_DETAILS_IMAGE_FIELDS.has(activeChangeField) || activeChangeField === 'image_url'
+                          ? <img src={submittedProposed[activeChangeField]} alt="proposed" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 6, objectFit: 'cover', outline: '2px solid #22c55e' }} />
+                          : ['bio', 'description', 'mission', 'vision', 'market_positioning'].includes(activeChangeField)
+                            ? renderBiographyWords(liveProfile?.[activeChangeField], submittedProposed?.[activeChangeField], true)
+                            : isComplexArrayField(activeChangeField)
+                              ? renderArrayValuePreview(activeChangeField, submittedProposed[activeChangeField], liveProfile[activeChangeField], false)
+                              : <span className="cr-value-added">{String(submittedProposed[activeChangeField])}</span>
                       ) : (
                         <span className="cr-value-empty">None (Cleared)</span>
                       )}
@@ -1569,7 +2790,7 @@ export default function ChangeRequests() {
                   <label htmlFor={`cr-input-${activeChangeField}`} className="cr-edit-label" style={{ marginBottom: '8px', display: 'block' }}>
                     Modify Proposed Value (Make adjustments below before applying)
                   </label>
-                  {['trust_tags', 'awards', 'videos', 'publications', 'quick_facts'].includes(activeChangeField) ? (
+                  {isComplexArrayField(activeChangeField) ? (
                     <div className="cr-visual-array-editor">
                       {getArrayVal(activeChangeField).map((item, idx) => (
                         <div key={idx} className="cr-array-item-card">
@@ -1616,13 +2837,25 @@ export default function ChangeRequests() {
                           if (activeChangeField === 'quick_facts') {
                             defaultTemplate = { icon: 'info', label: '', value: '', verified_sources: 1 };
                           } else if (activeChangeField === 'awards') {
-                            defaultTemplate = { year: new Date().getFullYear().toString(), title: '', issuer: '', tag: 'Verified', description: '' };
+                            defaultTemplate = { year: new Date().getFullYear().toString(), title: '', issuer: '', description: '' };
                           } else if (activeChangeField === 'videos') {
                             defaultTemplate = { title: '', url: '', type: 'Interview', duration: '', views: 0, date: '' };
                           } else if (activeChangeField === 'publications') {
-                            defaultTemplate = { title: '', type: 'Journal', journal: '', date: '', url: '', image_url: '' };
+                            defaultTemplate = { publication_title: '', publication_url: '', abstract_snippet: '', publication_year: '' };
                           } else if (activeChangeField === 'trust_tags') {
                             defaultTemplate = { name: '', type: 'outline-blue' };
+                          } else if (activeChangeField === 'news_articles') {
+                            defaultTemplate = { title: '', url: '', source: '' };
+                          } else if (activeChangeField === 'reviews') {
+                            defaultTemplate = { source_platform: '', rating: '', review_count: '', review_snippet: '', review_url: '' };
+                          } else if (activeChangeField === 'core_services') {
+                            defaultTemplate = { name: '', description: '' };
+                          } else if (activeChangeField === 'leadership') {
+                            defaultTemplate = { name: '', role: '', expertise: '', image: '', score: '', entity_slug: '' };
+                          } else if (activeChangeField === 'products') {
+                            defaultTemplate = { name: '', description: '' };
+                          } else if (activeChangeField === 'locations') {
+                            defaultTemplate = { city: '', country: '', headquarter: false };
                           }
                           arr.push(defaultTemplate);
                           handleFieldChange(activeChangeField, arr);
@@ -1631,7 +2864,14 @@ export default function ChangeRequests() {
                         + Add New {getFieldLabel(activeChangeField).slice(0, -1) || 'Item'}
                       </button>
                     </div>
-                  ) : activeChangeField === 'bio' ? (
+                  ) : ORG_DETAILS_IMAGE_FIELDS.has(activeChangeField) || activeChangeField === 'image_url' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {getPropVal(activeChangeField) && (
+                        <img src={getPropVal(activeChangeField)} alt="proposed" style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 6, objectFit: 'cover' }} />
+                      )}
+                      <span style={{ fontSize: 11, color: '#94a3b8' }}>Image URL is set by the uploaded file and cannot be edited here. Use Accept Proposed or Revert to Live below.</span>
+                    </div>
+                  ) : ['bio', 'description', 'mission', 'vision', 'market_positioning'].includes(activeChangeField) ? (
                     <textarea
                       id={`cr-input-${activeChangeField}`}
                       className="cr-edit-textarea"
@@ -1810,7 +3050,10 @@ export default function ChangeRequests() {
               });
               let parsedMessage = {};
               try { parsedMessage = JSON.parse(req.message); } catch { /* ignore */ }
-              const proposedRole = parsedMessage.proposed?.role || 'User';
+              const isOrg = parsedMessage.entity_type === 'organization';
+              const proposedRole = isOrg
+                ? (parsedMessage.proposed?.industry || parsedMessage.original?.industry || 'Organization')
+                : (parsedMessage.proposed?.role || 'User');
               const userId = req.email.split('@')[0];
               const changeCount = Object.keys(parsedMessage.proposed && typeof parsedMessage.proposed === 'object' ? parsedMessage.proposed : {}).length;
 
@@ -1822,6 +3065,7 @@ export default function ChangeRequests() {
                     name={req.name}
                     badge={reqStatus === 'approved' ? 'verified' : undefined}
                     role={proposedRole}
+                    entityType={isOrg ? 'organization' : 'person'}
                     ctaText="Review Changes"
                     onCtaClick={() => handleReview(req)}
                     isBuilding={false}

@@ -216,9 +216,10 @@ body.cr-review-active .admin-sidebar .admin-sidebar-logout {
   left: 72px; /* Fit perfectly next to the collapsed sidebar */
   right: 0;
   bottom: 0;
+  height: 100vh;
   z-index: 99; /* Sits behind the sidebar which has z-index 100 */
   background-color: #ffffff;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -642,6 +643,20 @@ body.cr-review-active .admin-sidebar .admin-sidebar-logout {
 
 .cr-field-content-block {
   width: 100%;
+}
+
+/* Org profile preview wrapper — prevents op-container from overflowing the pane */
+.cr-org-profile-preview .op-container {
+  max-width: 100%;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+/* Banner with pending change: amber ring */
+.cr-field-changed-banner {
+  outline: 2px solid rgba(249, 115, 22, 0.7);
+  outline-offset: -2px;
+  position: relative;
 }
 
 /* Diff Word Highlighting for Biography */
@@ -1266,6 +1281,14 @@ body.cr-review-active .admin-sidebar .admin-sidebar-logout {
   position: relative;
   border-radius: 18px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.cr-card-wrapper .entity-card {
+  flex: 1;
+  height: 100%;
 }
 
 .cr-card-wrapper::before {
@@ -1470,7 +1493,8 @@ body.cr-review-active .admin-sidebar .admin-sidebar-logout {
 .cr-review-workspace-split {
   display: flex;
   width: 100%;
-  min-height: calc(100vh - 110px);
+  flex: 1;
+  min-height: 0;
   background-color: #f8fafc;
 }
 
@@ -1496,9 +1520,7 @@ body.cr-review-active .admin-sidebar .admin-sidebar-logout {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  position: sticky;
-  top: 110px;
-  height: calc(100vh - 110px);
+  height: 100%;
   overflow-y: auto;
 }
 
@@ -1922,4 +1944,28 @@ body.cr-review-active .admin-sidebar .admin-sidebar-logout {
   color: #1e3a8a;
   background-color: #f8fafc;
 }
+
+/* ──────────────────────────────────────────────────────────
+   ORGANIZATION PROFILE PREVIEW FIX
+   Overrides scroll-reveal opacity properties that hide elements
+   when rendered statically on the change request review page.
+   ────────────────────────────────────────────────────────── */
+.cr-org-profile-preview .op-section,
+.cr-org-profile-preview .op-header-card,
+.cr-org-profile-preview .op-trust-panel,
+.cr-org-profile-preview .op-stat-card,
+.cr-org-profile-preview .op-story-mv-card,
+.cr-org-profile-preview .op-story-diff-card,
+.cr-org-profile-preview .op-service-card,
+.cr-org-profile-preview .op-tag,
+.cr-org-profile-preview .op-product-card,
+.cr-org-profile-preview .op-trusted-party-card,
+.cr-org-profile-preview .op-award-card,
+.cr-org-profile-preview .op-social-extra-card,
+.cr-org-profile-preview .op-investor-source-card {
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+}
+
 
