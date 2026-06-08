@@ -240,7 +240,7 @@ const ApprovalCard = ({ entity, onStatusChange, onPaymentChange }) => {
           {isProfileBuilding ? (
             <span className="nc-cta nc-cta--disabled">Profile Pending</span>
           ) : (
-            <Link to={`/entity/${entity.user_id}`} className="nc-cta">
+            <Link to={`/entity/${entity.entity_slug || entity.user_id}`} className="nc-cta">
               <span>View Authority Profile</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="5" y1="12" x2="19" y2="12" />
@@ -443,7 +443,7 @@ const OrgApprovalCard = ({ entity, onStatusChange, onPaymentChange }) => {
         <div className="nc-divider" />
 
         <div className="nc-actions">
-          <Link to={`/organization/${entity.user_id}`} className="nc-cta">
+          <Link to={`/organization/${entity.entity_slug || entity.user_id}`} className="nc-cta">
             <span>View Organisation Profile</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="5" y1="12" x2="19" y2="12" />
