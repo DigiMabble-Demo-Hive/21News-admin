@@ -53,10 +53,7 @@ const AdminLayout = () => {
           {!isCollapsed && (
             <>
               <div className="admin-sidebar-logo">
-                <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-                  <rect width="32" height="32" rx="8" fill="#1E3A5F"/>
-                  <text x="16" y="22" textAnchor="middle" fill="white" fontSize="16" fontWeight="800" fontFamily="Inter, sans-serif">21</text>
-                </svg>
+                <img src="/logo.jpg" alt="21News" style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover' }} />
               </div>
               <div className="admin-sidebar-brand-text">
                 <span className="admin-sidebar-title">21News</span>
