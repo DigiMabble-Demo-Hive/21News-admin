@@ -2423,6 +2423,7 @@ a.op-product-card { cursor: pointer; }
   .op-similar-grid { grid-template-columns: 1fr; }
   .op-products-grid { grid-template-columns: 1fr 1fr; }
   .op-trusted-parties-grid { grid-template-columns: repeat(3, 1fr) !important; }
+  .op-services-grid { grid-template-columns: repeat(2, 1fr) !important; }
   .op-story-mv-row { grid-template-columns: 1fr; }
   .op-story-diff-grid { grid-template-columns: 1fr; }
   .op-investor-summary { padding: 18px 20px; }
@@ -2440,6 +2441,8 @@ a.op-product-card { cursor: pointer; }
   .op-products-grid { grid-template-columns: 1fr; }
   .op-products-features, .op-products-tech { flex-direction: column; align-items: flex-start; gap: 10px; }
   .op-trusted-parties-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .op-trusted-party-card--wide { grid-column: span 1; }
+  .op-services-grid { grid-template-columns: 1fr !important; }
   .op-awards-grid { grid-template-columns: 1fr; }
   .op-investor-sources-grid { grid-template-columns: 1fr; }
   .op-contact-grid { grid-template-columns: 1fr; }
@@ -2453,4 +2456,5 @@ a.op-product-card { cursor: pointer; }
   .op-reviews-grid { grid-template-columns: 1fr; }
   .op-locations-grid { grid-template-columns: repeat(2, 1fr); }
   .op-trusted-parties-grid { grid-template-columns: 1fr !important; }
+  .op-trusted-party-card--wide { grid-column: span 1; }
 }
