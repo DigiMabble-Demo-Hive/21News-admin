@@ -47,6 +47,7 @@ const EditableOrganizationProfile = ({
   // ── Main org form ──
   const [form, setForm] = useState({
     organization_name:      profile.organization_name      || '',
+    entity_slug:            profile.entity_slug            || '',
     tagline:                profile.tagline                || '',
     description:            profile.description            || '',
     industry:               profile.industry               || '',
@@ -179,6 +180,7 @@ const EditableOrganizationProfile = ({
       // 1 ── Main org fields
       const orgFields = {
         organization_name:      form.organization_name,
+        entity_slug:            form.entity_slug              || null,
         tagline:                form.tagline,
         description:            form.description,
         industry:               form.industry,
@@ -344,6 +346,13 @@ const EditableOrganizationProfile = ({
           <div className="ep-field ep-field--full">
             <label>Organization Name</label>
             <input value={form.organization_name} onChange={e => update('organization_name', e.target.value)} placeholder="e.g. Acme Corporation" />
+          </div>
+          <div className="ep-field ep-field--full">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              Profile Slug
+              <button type="button" style={{ fontSize: 11, color: '#1B2D5E', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }} onClick={() => update('entity_slug', (form.organization_name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''))}>Auto-generate</button>
+            </label>
+            <input value={form.entity_slug || ''} onChange={e => update('entity_slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} placeholder="e.g. acme-corporation" />
           </div>
           <div className="ep-field ep-field--full">
             <label>Tagline</label>

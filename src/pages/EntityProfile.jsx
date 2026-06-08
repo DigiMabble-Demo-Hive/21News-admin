@@ -315,6 +315,7 @@ const EntityProfile = () => {
     if (!profile) return;
     setForm({
       name:                   profile.name                   || '',
+      entity_slug:            profile.entity_slug            || '',
       role:                   profile.role                   || '',
       subtitle:               profile.subtitle               || '',
       bio:                    profile.bio                    || '',
@@ -363,6 +364,7 @@ const EntityProfile = () => {
     try {
       const updateData = {
         name:                   form.name,
+        entity_slug:            form.entity_slug              || null,
         role:                   form.role,
         subtitle:               form.subtitle,
         bio:                    form.bio,
@@ -675,6 +677,13 @@ const EntityProfile = () => {
                 <div className="op-inline-field">
                   <label className="op-inline-label">Name</label>
                   <input className="op-inline-input" value={form.name || ''} onChange={(e) => sf('name', e.target.value)} placeholder="e.g. John Doe" />
+                </div>
+                <div className="op-inline-field">
+                  <label className="op-inline-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    Profile Slug
+                    <button type="button" style={{ fontSize: 11, color: '#1B2D5E', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', padding: 0 }} onClick={() => sf('entity_slug', (form.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''))}>Auto-generate</button>
+                  </label>
+                  <input className="op-inline-input" value={form.entity_slug || ''} onChange={(e) => sf('entity_slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} placeholder="e.g. john-doe" />
                 </div>
                 <div className="op-inline-field">
                   <label className="op-inline-label">Role</label>
