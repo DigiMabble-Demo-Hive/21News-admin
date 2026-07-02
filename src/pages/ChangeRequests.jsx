@@ -2414,20 +2414,30 @@ export default function ChangeRequests() {
             <section className="profile-grid-2">
               {/* LEFT: CTA showcase card (premium) or HQ card (standard) */}
               {isPremium ? (
-                renderClickableField('featured_content', 'Featured Service & CTA', (
-                  <div className="profile-featured-service">
+                <div className="profile-featured-service">
+                  {/* CTA image — own clickable zone so CTA_image_url change highlights here */}
+                  {renderClickableField('CTA_image_url', 'CTA Showcase Image', (
                     <div className="fs-image-wrap">
-                      <img
-                        src={getPropVal('CTA_image_url') || liveProfile?.CTA_image_url || liveProfile?.hq_image_url || 'https://images.unsplash.com/photo-1486325212027-8081e485255e?w=800&q=80&auto=format&fit=crop'}
-                        alt="Featured service"
-                        className="fs-image"
-                        onError={(e) => { e.target.style.display = 'none'; }}
-                      />
+                      {(getPropVal('CTA_image_url') || liveProfile?.CTA_image_url || liveProfile?.hq_image_url) ? (
+                        <img
+                          src={getPropVal('CTA_image_url') || liveProfile?.CTA_image_url || liveProfile?.hq_image_url}
+                          alt="Featured service"
+                          className="fs-image"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="fs-image-avatar">
+                          <span>{proposedAvatarText}</span>
+                        </div>
+                      )}
                       <div className="fs-image-gradient" />
                       <div className="fs-image-badges">
                         <span className="fs-showcase-badge">PREMIUM SHOWCASE</span>
                       </div>
                     </div>
+                  ))}
+                  {/* Featured content text — own clickable zone so featured_content change highlights here */}
+                  {renderClickableField('featured_content', 'Featured Service & CTA', (
                     <div className="fs-body">
                       <div className="fs-content">
                         <div className="fs-section-eyebrow">Featured Service</div>
@@ -2461,8 +2471,8 @@ export default function ChangeRequests() {
                         </div>
                       )}
                     </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               ) : (
                 <div className="profile-section-card hq-card">
                   <div className="profile-section-header">
