@@ -507,7 +507,7 @@ export default function ChangeRequests() {
       // Extract unique userIds from submissions
       const userIds = [...new Set(fetchedRequests.map(r => r.email?.split('@')[0]))].filter(Boolean);
       if (userIds.length > 0) {
-        const [profilesRes, orgEntitiesRes, orgDetailsRes] = await Promise.all([
+        const [profilesRes, orgEntitiesRes, orgDetailsRes, userDetailsRes] = await Promise.all([
           supabase
             .from('entities_master')
             .select('user_id, image_url')
@@ -519,6 +519,10 @@ export default function ChangeRequests() {
           supabase
             .from('organization_details')
             .select('user_id, cropped_profile_picture_url, profile_picture_url')
+            .in('user_id', userIds),
+          supabase
+            .from('user_details')
+            .select('user_id, photo_url, cropped_photo_url')
             .in('user_id', userIds)
         ]);
 
@@ -546,6 +550,18 @@ export default function ChangeRequests() {
               const logo = p.cropped_profile_picture_url || p.profile_picture_url;
               if (logo) {
                 imageMap[p.user_id] = logo;
+              }
+            }
+          });
+        }
+        // user_details is the real source of truth for a person's photo — apply last so
+        // it always wins over the (possibly stale) entities_master.image_url mirror.
+        if (!userDetailsRes.error && userDetailsRes.data) {
+          userDetailsRes.data.forEach(p => {
+            if (p.user_id) {
+              const photo = p.cropped_photo_url || p.photo_url;
+              if (photo) {
+                imageMap[p.user_id] = photo;
               }
             }
           });
@@ -610,12 +626,19 @@ export default function ChangeRequests() {
               .select('profile_picture_url, banner_picture_url, cropped_profile_picture_url, cropped_banner_picture_url')
               .eq('user_id', userId)
               .maybeSingle()
-          : Promise.resolve({ data: null, error: null })
+          : supabase
+              .from('user_details')
+              .select('photo_url, cropped_photo_url')
+              .eq('user_id', userId)
+              .maybeSingle()
       ]);
 
       if (profileRes.error) throw profileRes.error;
       const activeProfile = profileRes.data;
       const orgDetails = detailsRes.data;
+      // user_details is the real source of truth for a person's photo — never trust
+      // entities_master.image_url alone, it's just a mirror that can go stale.
+      const personImage = !isOrg ? (orgDetails?.cropped_photo_url || orgDetails?.photo_url || null) : null;
 
       let enrichmentData = {};
       if (isOrg) {
@@ -709,8 +732,14 @@ export default function ChangeRequests() {
             news_articles: activeProfile?.news_articles || enrichmentData.news_articles || payload.original?.news_articles || [],
             publications: activeProfile?.publications || enrichmentData.publications || payload.original?.publications || [],
             social_followers: activeProfile?.social_followers || payload.original?.social_followers || '',
+            // organization_details is the real source of truth for logo/banner images —
+            // re-apply after the activeProfile spread so a stale master-table mirror can't win.
+            profile_picture_url: orgDetails?.profile_picture_url || activeProfile?.profile_picture_url || null,
+            cropped_profile_picture_url: orgDetails?.cropped_profile_picture_url || activeProfile?.cropped_profile_picture_url || null,
+            banner_picture_url: orgDetails?.banner_picture_url || activeProfile?.banner_picture_url || null,
+            cropped_banner_picture_url: orgDetails?.cropped_banner_picture_url || activeProfile?.cropped_banner_picture_url || null,
           }
-        : (activeProfile || null);
+        : (activeProfile ? { ...activeProfile, image_url: personImage || activeProfile.image_url || null } : null);
       setLiveProfile(mergedProfile);
 
       const initialForm = {};
