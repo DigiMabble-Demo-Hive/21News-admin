@@ -117,6 +117,10 @@ const ORG_DETAILS_IMAGE_FIELDS = new Set([
   'banner_picture_url',  'cropped_banner_picture_url',
 ]);
 
+// Fields rendered inside the dark "Featured Service" showcase card — the "answered"
+// highlight box needs light-on-dark colors here instead of the default light card style.
+const DARK_CARD_FIELDS = new Set(['CTA_image_url', 'featured_content']);
+
 const ORG_FIELD_LABELS = Object.fromEntries(ORG_FIELDS.map(f => [f.key, f.label]));
 const PAGE_SIZE = 8;
 
@@ -1237,7 +1241,11 @@ export default function ChangeRequests() {
             }
           }}
           title={isChanged ? `Click to compare and edit change for ${label}` : undefined}
-          style={isAnswered ? { border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 18px', margin: '14px 0', backgroundColor: '#f8fafc', cursor: 'pointer' } : undefined}
+          style={isAnswered ? (
+            DARK_CARD_FIELDS.has(key)
+              ? { border: '1px solid rgba(255, 255, 255, 0.14)', borderRadius: '12px', padding: '14px 18px', margin: '14px 0', backgroundColor: 'rgba(255, 255, 255, 0.06)', cursor: 'pointer' }
+              : { border: '1px solid #e2e8f0', borderRadius: '12px', padding: '14px 18px', margin: '14px 0', backgroundColor: '#f8fafc', cursor: 'pointer' }
+          ) : undefined}
         >
           <div className="cr-field-content-block">
             {children}
@@ -2963,17 +2971,46 @@ export default function ChangeRequests() {
                             </div>
                           ))}
                           <div className="cr-array-subfield cr-array-subfield--full">
-                            <label className="cr-array-subfield-label">key benefits (one per line)</label>
-                            <textarea
-                              className="cr-array-subfield-input"
-                              rows={3}
-                              value={((editForm.featured_content?.key_benefits) || []).join('\n')}
-                              onChange={e => handleFieldChange('featured_content', {
-                                ...(editForm.featured_content || {}),
-                                key_benefits: e.target.value.split('\n').filter(Boolean),
-                              })}
-                              placeholder="One benefit per line"
-                            />
+                            <label className="cr-array-subfield-label">key benefits</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              {((editForm.featured_content?.key_benefits) || []).map((benefit, bIdx) => (
+                                <div key={bIdx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                  <input
+                                    type="text"
+                                    className="cr-array-subfield-input"
+                                    value={benefit}
+                                    onChange={e => {
+                                      const benefits = [...(editForm.featured_content?.key_benefits || [])];
+                                      benefits[bIdx] = e.target.value;
+                                      handleFieldChange('featured_content', { ...(editForm.featured_content || {}), key_benefits: benefits });
+                                    }}
+                                    placeholder={`Benefit #${bIdx + 1}`}
+                                  />
+                                  <button
+                                    type="button"
+                                    className="cr-array-item-remove"
+                                    onClick={() => {
+                                      const benefits = [...(editForm.featured_content?.key_benefits || [])];
+                                      benefits.splice(bIdx, 1);
+                                      handleFieldChange('featured_content', { ...(editForm.featured_content || {}), key_benefits: benefits });
+                                    }}
+                                  >
+                                    &times; Remove
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                            <button
+                              type="button"
+                              className="cr-array-add-btn"
+                              style={{ marginTop: 8 }}
+                              onClick={() => {
+                                const benefits = [...(editForm.featured_content?.key_benefits || []), ''];
+                                handleFieldChange('featured_content', { ...(editForm.featured_content || {}), key_benefits: benefits });
+                              }}
+                            >
+                              + Add Key Benefit
+                            </button>
                           </div>
                         </div>
                       </div>
