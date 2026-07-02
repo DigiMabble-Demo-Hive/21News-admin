@@ -306,6 +306,8 @@ export default function ChangeRequests() {
     { key: 'github_url',      label: 'GitHub URL' },
     { key: 'wikipedia_url',   label: 'Wikipedia URL' },
     { key: 'subscribe_url',   label: 'Subscribe / Podcast URL' },
+    { key: 'image_url',          label: 'Profile Photo' },
+    { key: 'cropped_photo_url',  label: 'Profile Photo (Cropped)' },
     { key: 'hq_image_url',    label: 'HQ Image' },
     { key: 'CTA_image_url',   label: 'CTA Showcase Image' },
     { key: 'featured_content', label: 'Featured Service & CTA' },
@@ -334,7 +336,7 @@ export default function ChangeRequests() {
   const PERSON_ARRAY_KEYS = new Set(['trust_tags', 'awards', 'videos', 'publications', 'quick_facts']);
   const isComplexArrayField = (key) => PERSON_ARRAY_KEYS.has(key) || ORG_ARRAY_KEYS.has(key);
 
-  const PERSON_IMAGE_FIELDS = new Set(['image_url', 'hq_image_url', 'CTA_image_url']);
+  const PERSON_IMAGE_FIELDS = new Set(['image_url', 'cropped_photo_url', 'hq_image_url', 'CTA_image_url']);
 
   const renderFeaturedContentPreview = (val) => {
     if (!val || typeof val !== 'object') return <span className="cr-value-empty">None</span>;
@@ -641,8 +643,10 @@ export default function ChangeRequests() {
       const activeProfile = profileRes.data;
       const orgDetails = detailsRes.data;
       // user_details is the real source of truth for a person's photo — never trust
-      // entities_master.image_url alone, it's just a mirror that can go stale.
-      const personImage = !isOrg ? (orgDetails?.cropped_photo_url || orgDetails?.photo_url || null) : null;
+      // entities_master.image_url alone, it's just a mirror that can go stale. The full
+      // (uncropped) photo_url is what the profile displays; cropped_photo_url is only
+      // used by card-style listings elsewhere, so it's not preferred here.
+      const personImage = !isOrg ? (orgDetails?.photo_url || orgDetails?.cropped_photo_url || null) : null;
 
       let enrichmentData = {};
       if (isOrg) {
@@ -743,7 +747,7 @@ export default function ChangeRequests() {
             banner_picture_url: orgDetails?.banner_picture_url || activeProfile?.banner_picture_url || null,
             cropped_banner_picture_url: orgDetails?.cropped_banner_picture_url || activeProfile?.cropped_banner_picture_url || null,
           }
-        : (activeProfile ? { ...activeProfile, image_url: personImage || activeProfile.image_url || null } : null);
+        : (activeProfile ? { ...activeProfile, image_url: personImage || activeProfile.image_url || null, cropped_photo_url: orgDetails?.cropped_photo_url || null } : null);
       setLiveProfile(mergedProfile);
 
       const initialForm = {};
@@ -790,7 +794,7 @@ export default function ChangeRequests() {
     const PERSON_SAFE_FIELDS = [
       'name', 'role', 'subtitle', 'bio', 'location', 'sector', 'company',
       'status', 'active_since', 'linkedin_url', 'website_url', 'trust_tags',
-      'awards', 'videos', 'publications', 'quick_facts', 'image_url',
+      'awards', 'videos', 'publications', 'quick_facts', 'image_url', 'cropped_photo_url',
       'is_premium', 'badge',
       'twitter_url', 'facebook_url', 'instagram_url', 'youtube_url',
       'medium_url', 'github_url', 'wikipedia_url', 'subscribe_url',
@@ -848,6 +852,8 @@ export default function ChangeRequests() {
 
     // For org image fields, separate out what goes to organization_details vs master table
     let masterProposed = { ...finalProposed };
+    // cropped_photo_url only exists on user_details, never on entities_master
+    delete masterProposed.cropped_photo_url;
     const orgDetailsUpdate = {};
     if (isOrgRequest && statusType === 'approved') {
       Object.keys(finalProposed).forEach(f => {
@@ -867,6 +873,18 @@ export default function ChangeRequests() {
       });
     }
 
+    // user_details.photo_url/cropped_photo_url is the real source of truth for a
+    // person's avatar (entities_master.image_url is just a mirror) — mirror an
+    // approved photo change there too, same as HQ/CTA images sync to their own columns.
+    // photo_url holds the full/uncropped image (what the profile displays);
+    // cropped_photo_url holds the separate card-style crop used elsewhere in the app.
+    const personDetailsUpdate = (!isOrgRequest && statusType === 'approved' && (finalProposed.image_url || finalProposed.cropped_photo_url))
+      ? {
+          ...(finalProposed.image_url ? { photo_url: finalProposed.image_url } : {}),
+          ...(finalProposed.cropped_photo_url ? { cropped_photo_url: finalProposed.cropped_photo_url } : {}),
+        }
+      : null;
+
     const profileUpdateData =
       statusType === 'approved'         ? { ...masterProposed, approval_status: 'approved' } :
       statusType === 'change_requested' ? { approval_status: 'change_requested' } :
@@ -877,14 +895,26 @@ export default function ChangeRequests() {
         console.error('Profile sync failed error details:', err);
       });
 
-    // Write image fields to organization_details if present
+    // Write image fields to organization_details if present. Goes through the
+    // service-role admin API (not the client `supabase` instance) because RLS on
+    // this table only lets a user write their own row — a direct client-side
+    // upsert here silently fails when the acting session is the admin's, not
+    // the profile owner's, which left approved images never actually applying.
     if (Object.keys(orgDetailsUpdate).length > 0) {
       try {
-        await supabase
-          .from('organization_details')
-          .upsert({ user_id: userId, ...orgDetailsUpdate }, { onConflict: 'user_id' });
+        await updateAdminProfile({ userId, updateData: orgDetailsUpdate, table: 'organization_details' });
       } catch (imgErr) {
         console.error('Failed to write image fields to organization_details:', imgErr);
+      }
+    }
+
+    // Write the approved photo to user_details if present — same RLS reasoning
+    // as organization_details above, route through the service-role admin API.
+    if (personDetailsUpdate) {
+      try {
+        await updateAdminProfile({ userId, updateData: personDetailsUpdate, table: 'user_details' });
+      } catch (imgErr) {
+        console.error('Failed to write image field to user_details:', imgErr);
       }
     }
 
@@ -2270,13 +2300,15 @@ export default function ChangeRequests() {
               
               {/* Left Side: Avatar */}
               <div className="profile-image-container">
-                <SafeImage
-                  src={getPropVal('image_url') || liveProfile?.image_url}
-                  alt={getPropVal('name')}
-                  className="profile-hero-image"
-                  fallbackClassName="profile-image-fallback"
-                  fallbackText={proposedAvatarText}
-                />
+                {renderClickableField('image_url', 'Profile Photo',
+                  <SafeImage
+                    src={getPropVal('image_url') || liveProfile?.image_url}
+                    alt={getPropVal('name')}
+                    className="profile-hero-image"
+                    fallbackClassName="profile-image-fallback"
+                    fallbackText={proposedAvatarText}
+                  />
+                )}
                 {(badge === 'verified' || badge === 'claimed') && (
                   <div className="profile-image-badge">
                     <svg width="20" height="20" viewBox="0 0 32 32" fill="none">
