@@ -278,22 +278,33 @@ export default function ChangeRequests() {
   }, [selected]);
 
   const PERSON_FIELDS = [
-    { key: 'name',         label: 'Name' },
-    { key: 'role',         label: 'Role' },
-    { key: 'subtitle',     label: 'Subtitle' },
-    { key: 'sector',       label: 'Sector' },
-    { key: 'location',     label: 'Location' },
-    { key: 'active_since', label: 'Since Year' },
-    { key: 'bio',          label: 'Biography' },
-    { key: 'linkedin_url', label: 'LinkedIn URL' },
-    { key: 'website_url',  label: 'Website URL' },
-    { key: 'company',      label: 'Company' },
-    { key: 'status',       label: 'Status' },
-    { key: 'trust_tags',   label: 'Trust Tags' },
-    { key: 'awards',       label: 'Awards' },
-    { key: 'videos',       label: 'Videos' },
-    { key: 'publications', label: 'Publications' },
-    { key: 'quick_facts',  label: 'Quick Facts' },
+    { key: 'name',            label: 'Name' },
+    { key: 'role',            label: 'Role' },
+    { key: 'subtitle',        label: 'Subtitle' },
+    { key: 'sector',          label: 'Sector' },
+    { key: 'location',        label: 'Location' },
+    { key: 'active_since',    label: 'Since Year' },
+    { key: 'bio',             label: 'Biography' },
+    { key: 'linkedin_url',    label: 'LinkedIn URL' },
+    { key: 'website_url',     label: 'Website URL' },
+    { key: 'company',         label: 'Company' },
+    { key: 'status',          label: 'Status' },
+    { key: 'trust_tags',      label: 'Trust Tags' },
+    { key: 'awards',          label: 'Awards' },
+    { key: 'videos',          label: 'Videos' },
+    { key: 'publications',    label: 'Publications' },
+    { key: 'quick_facts',     label: 'Quick Facts' },
+    { key: 'twitter_url',     label: 'X (Twitter) URL' },
+    { key: 'facebook_url',    label: 'Facebook URL' },
+    { key: 'instagram_url',   label: 'Instagram URL' },
+    { key: 'youtube_url',     label: 'YouTube URL' },
+    { key: 'medium_url',      label: 'Medium URL' },
+    { key: 'github_url',      label: 'GitHub URL' },
+    { key: 'wikipedia_url',   label: 'Wikipedia URL' },
+    { key: 'subscribe_url',   label: 'Subscribe / Podcast URL' },
+    { key: 'hq_image_url',    label: 'HQ Image' },
+    { key: 'CTA_image_url',   label: 'CTA Showcase Image' },
+    { key: 'featured_content', label: 'Featured Service & CTA' },
   ];
 
   const getChangedFields = () => {
@@ -318,6 +329,31 @@ export default function ChangeRequests() {
 
   const PERSON_ARRAY_KEYS = new Set(['trust_tags', 'awards', 'videos', 'publications', 'quick_facts']);
   const isComplexArrayField = (key) => PERSON_ARRAY_KEYS.has(key) || ORG_ARRAY_KEYS.has(key);
+
+  const PERSON_IMAGE_FIELDS = new Set(['image_url', 'hq_image_url', 'CTA_image_url']);
+
+  const renderFeaturedContentPreview = (val) => {
+    if (!val || typeof val !== 'object') return <span className="cr-value-empty">None</span>;
+    const textFields = ['title', 'excerpt', 'article_url', 'image_url', 'highlight_quote', 'why_choose'];
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {textFields.filter(k => val[k]).map(k => (
+          <div key={k} style={{ fontSize: 12 }}>
+            <span style={{ fontWeight: 700, color: '#64748b', textTransform: 'uppercase', fontSize: 10, marginRight: 4 }}>
+              {k.replace(/_/g, ' ')}:
+            </span>
+            <span>{String(val[k]).slice(0, 140)}{String(val[k]).length > 140 ? '…' : ''}</span>
+          </div>
+        ))}
+        {Array.isArray(val.key_benefits) && val.key_benefits.length > 0 && (
+          <div style={{ fontSize: 12 }}>
+            <span style={{ fontWeight: 700, color: '#64748b', textTransform: 'uppercase', fontSize: 10, marginRight: 4 }}>key benefits:</span>
+            <span>{val.key_benefits.join(' · ')}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const getArrayVal = (key) => {
     const val = editForm[key] !== undefined ? editForm[key] : (liveProfile?.[key] || []);
@@ -723,6 +759,9 @@ export default function ChangeRequests() {
       'status', 'active_since', 'linkedin_url', 'website_url', 'trust_tags',
       'awards', 'videos', 'publications', 'quick_facts', 'image_url',
       'is_premium', 'badge',
+      'twitter_url', 'facebook_url', 'instagram_url', 'youtube_url',
+      'medium_url', 'github_url', 'wikipedia_url', 'subscribe_url',
+      'hq_image_url', 'CTA_image_url', 'featured_content',
     ];
     const safeFields = isOrgRequest ? ORG_SAFE_FIELDS : PERSON_SAFE_FIELDS;
     const finalProposed = {};
@@ -2371,18 +2410,78 @@ export default function ChangeRequests() {
               </div>
             </section>
 
-            {/* Primary Entity & HQ Company details */}
+            {/* Primary Entity + Featured Service / HQ — mirrors dashboard two-column layout */}
             <section className="profile-grid-2">
-              {liveProfile?.hq_image_url && (
-                <div className="profile-section-card">
+              {/* LEFT: CTA showcase card (premium) or HQ card (standard) */}
+              {isPremium ? (
+                renderClickableField('featured_content', 'Featured Service & CTA', (
+                  <div className="profile-featured-service">
+                    <div className="fs-image-wrap">
+                      <img
+                        src={getPropVal('CTA_image_url') || liveProfile?.CTA_image_url || liveProfile?.hq_image_url || 'https://images.unsplash.com/photo-1486325212027-8081e485255e?w=800&q=80&auto=format&fit=crop'}
+                        alt="Featured service"
+                        className="fs-image"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                      <div className="fs-image-gradient" />
+                      <div className="fs-image-badges">
+                        <span className="fs-showcase-badge">PREMIUM SHOWCASE</span>
+                      </div>
+                    </div>
+                    <div className="fs-body">
+                      <div className="fs-content">
+                        <div className="fs-section-eyebrow">Featured Service</div>
+                        {(getPropVal('featured_content')?.title || liveProfile?.featured_content?.title)
+                          ? <h3 className="fs-headline">{getPropVal('featured_content')?.title || liveProfile?.featured_content?.title}</h3>
+                          : <p className="fs-description" style={{ opacity: 0.45, fontStyle: 'italic' }}>No featured content yet.</p>
+                        }
+                        {(getPropVal('featured_content')?.excerpt || liveProfile?.featured_content?.excerpt) && (
+                          <p className="fs-description">{getPropVal('featured_content')?.excerpt || liveProfile?.featured_content?.excerpt}</p>
+                        )}
+                      </div>
+                      {(() => {
+                        const benefits = getPropVal('featured_content')?.key_benefits || liveProfile?.featured_content?.key_benefits || [];
+                        return Array.isArray(benefits) && benefits.length > 0 ? (
+                          <div className="fs-benefits">
+                            <div className="fs-benefits-label">Key Benefits</div>
+                            {benefits.map((b, i) => (
+                              <div key={i} className="fs-benefit-item">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                <span>{b}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null;
+                      })()}
+                      {(getPropVal('featured_content')?.article_url || liveProfile?.featured_content?.article_url) && (
+                        <div className="fs-cta">
+                          <a href={getPropVal('featured_content')?.article_url || liveProfile?.featured_content?.article_url} target="_blank" rel="noopener noreferrer" className="fs-cta-btn" onClick={e => e.stopPropagation()}>
+                            Discover the Service
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="profile-section-card hq-card">
                   <div className="profile-section-header">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1L9 4"/><path d="M15 1L15 4"/><path d="M9 20L9 23"/><path d="M15 20L15 23"/><path d="M20 9L23 9"/><path d="M20 14L23 14"/><path d="M1 9L4 9"/><path d="M1 14L4 14"/></svg>
                     <h3>Company Headquarters</h3>
                   </div>
-                  <SafeImage src={liveProfile.hq_image_url} alt="Company HQ" className="hq-image" fallbackClassName="hq-image-fallback" fallbackText={proposedAvatarText} />
+                  {renderClickableField('hq_image_url', 'HQ Image',
+                    <SafeImage
+                      src={getPropVal('hq_image_url') || liveProfile?.hq_image_url}
+                      alt="Company HQ"
+                      className="hq-image"
+                      fallbackClassName="hq-image-fallback"
+                      fallbackText={proposedAvatarText}
+                    />
+                  )}
                 </div>
               )}
 
+              {/* RIGHT: Primary Entity; inline HQ section for premium */}
               <div className="profile-section-card">
                 <div className="profile-section-header">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -2390,25 +2489,25 @@ export default function ChangeRequests() {
                 </div>
                 <p className="primary-entity-desc">This profile represents a verified {liveProfile?.entity_type || 'entity'} with structured relationships to organisations, projects, and recognition systems.</p>
                 <div className="pe-grid">
-                  {renderClickableField('company', 'Company', 
+                  {renderClickableField('company', 'Company',
                     <div className="pe-box">
                       <div className="pe-box-label">Company</div>
                       <div className="pe-box-value">{getPropVal('company') || '—'}</div>
                     </div>
                   )}
-                  {renderClickableField('role', 'Role', 
+                  {renderClickableField('role', 'Role',
                     <div className="pe-box">
                       <div className="pe-box-label">Role</div>
                       <div className="pe-box-value">{getPropVal('role') || '—'}</div>
                     </div>
                   )}
-                  {renderClickableField('status', 'Status', 
+                  {renderClickableField('status', 'Status',
                     <div className="pe-box">
                       <div className="pe-box-label">Status</div>
                       <div className="pe-box-value" style={{ textTransform: 'capitalize' }}>{getPropVal('status') || '—'}</div>
                     </div>
                   )}
-                  {renderClickableField('active_since', 'Since Year', 
+                  {renderClickableField('active_since', 'Since Year',
                     <div className="pe-box">
                       <div className="pe-box-label">Since</div>
                       <div className="pe-box-value">{getPropVal('active_since') || '—'}</div>
@@ -2422,6 +2521,20 @@ export default function ChangeRequests() {
                   <div className="pe-signal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>{liveProfile?.events_count ?? 0} events</span></div>
                   <div className="pe-signal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg><span>{liveProfile?.funding_raised || 'No funding data'}</span></div>
                 </div>
+                {isPremium && (
+                  <div className="pe-hq-inline">
+                    <h3>Company Headquarters</h3>
+                    {renderClickableField('hq_image_url', 'HQ Image',
+                      <SafeImage
+                        src={getPropVal('hq_image_url') || liveProfile?.hq_image_url}
+                        alt="Company HQ"
+                        className="hq-image"
+                        fallbackClassName="hq-image-fallback"
+                        fallbackText={proposedAvatarText}
+                      />
+                    )}
+                  </div>
+                )}
                 <div className="pe-seo-box">
                   <strong>AI &amp; SEO Relevance:</strong> This structured entity data is optimised for AI assistants, search engines, and knowledge graph integration.
                 </div>
@@ -2752,13 +2865,15 @@ export default function ChangeRequests() {
                     <span className="cr-compare-label">Current Live on Site</span>
                     <div className="cr-compare-value">
                       {liveProfile?.[activeChangeField] !== undefined && liveProfile?.[activeChangeField] !== null ? (
-                        ORG_DETAILS_IMAGE_FIELDS.has(activeChangeField) || activeChangeField === 'image_url'
-                          ? <img src={liveProfile[activeChangeField]} alt="current" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 6, objectFit: 'cover' }} />
-                          : ['bio', 'description', 'mission', 'vision', 'market_positioning'].includes(activeChangeField)
-                            ? renderBiographyWords(liveProfile?.[activeChangeField], getPropVal(activeChangeField), false)
-                            : isComplexArrayField(activeChangeField)
-                              ? renderArrayValuePreview(activeChangeField, liveProfile[activeChangeField], submittedProposed[activeChangeField], true)
-                              : <span className="cr-value-deleted">{String(liveProfile[activeChangeField])}</span>
+                        activeChangeField === 'featured_content'
+                          ? renderFeaturedContentPreview(liveProfile[activeChangeField])
+                          : ORG_DETAILS_IMAGE_FIELDS.has(activeChangeField) || PERSON_IMAGE_FIELDS.has(activeChangeField)
+                            ? <img src={liveProfile[activeChangeField]} alt="current" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 6, objectFit: 'cover' }} />
+                            : ['bio', 'description', 'mission', 'vision', 'market_positioning'].includes(activeChangeField)
+                              ? renderBiographyWords(liveProfile?.[activeChangeField], getPropVal(activeChangeField), false)
+                              : isComplexArrayField(activeChangeField)
+                                ? renderArrayValuePreview(activeChangeField, liveProfile[activeChangeField], submittedProposed[activeChangeField], true)
+                                : <span className="cr-value-deleted">{String(liveProfile[activeChangeField])}</span>
                       ) : (
                         <span className="cr-value-empty">None (Not set)</span>
                       )}
@@ -2770,13 +2885,15 @@ export default function ChangeRequests() {
                     <span className="cr-compare-label">User's Proposed Change</span>
                     <div className="cr-compare-value">
                       {submittedProposed?.[activeChangeField] !== undefined && submittedProposed?.[activeChangeField] !== null ? (
-                        ORG_DETAILS_IMAGE_FIELDS.has(activeChangeField) || activeChangeField === 'image_url'
-                          ? <img src={submittedProposed[activeChangeField]} alt="proposed" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 6, objectFit: 'cover', outline: '2px solid #22c55e' }} />
-                          : ['bio', 'description', 'mission', 'vision', 'market_positioning'].includes(activeChangeField)
-                            ? renderBiographyWords(liveProfile?.[activeChangeField], submittedProposed?.[activeChangeField], true)
-                            : isComplexArrayField(activeChangeField)
-                              ? renderArrayValuePreview(activeChangeField, submittedProposed[activeChangeField], liveProfile[activeChangeField], false)
-                              : <span className="cr-value-added">{String(submittedProposed[activeChangeField])}</span>
+                        activeChangeField === 'featured_content'
+                          ? renderFeaturedContentPreview(submittedProposed[activeChangeField])
+                          : ORG_DETAILS_IMAGE_FIELDS.has(activeChangeField) || PERSON_IMAGE_FIELDS.has(activeChangeField)
+                            ? <img src={submittedProposed[activeChangeField]} alt="proposed" style={{ maxWidth: '100%', maxHeight: 160, borderRadius: 6, objectFit: 'cover', outline: '2px solid #22c55e' }} />
+                            : ['bio', 'description', 'mission', 'vision', 'market_positioning'].includes(activeChangeField)
+                              ? renderBiographyWords(liveProfile?.[activeChangeField], submittedProposed?.[activeChangeField], true)
+                              : isComplexArrayField(activeChangeField)
+                                ? renderArrayValuePreview(activeChangeField, submittedProposed[activeChangeField], liveProfile[activeChangeField], false)
+                                : <span className="cr-value-added">{String(submittedProposed[activeChangeField])}</span>
                       ) : (
                         <span className="cr-value-empty">None (Cleared)</span>
                       )}
@@ -2790,7 +2907,39 @@ export default function ChangeRequests() {
                   <label htmlFor={`cr-input-${activeChangeField}`} className="cr-edit-label" style={{ marginBottom: '8px', display: 'block' }}>
                     Modify Proposed Value (Make adjustments below before applying)
                   </label>
-                  {isComplexArrayField(activeChangeField) ? (
+                  {activeChangeField === 'featured_content' ? (
+                    <div className="cr-visual-array-editor">
+                      <div className="cr-array-item-card">
+                        <div className="cr-array-item-header"><span>Featured Service Fields</span></div>
+                        <div className="cr-array-item-grid">
+                          {['title', 'excerpt', 'article_url', 'image_url', 'highlight_quote', 'why_choose'].map(subKey => (
+                            <div key={subKey} className={`cr-array-subfield${['excerpt', 'why_choose'].includes(subKey) ? ' cr-array-subfield--full' : ''}`}>
+                              <label className="cr-array-subfield-label">{subKey.replace(/_/g, ' ')}</label>
+                              <input
+                                type="text"
+                                className="cr-array-subfield-input"
+                                value={(editForm.featured_content?.[subKey]) || ''}
+                                onChange={e => handleFieldChange('featured_content', { ...(editForm.featured_content || {}), [subKey]: e.target.value })}
+                              />
+                            </div>
+                          ))}
+                          <div className="cr-array-subfield cr-array-subfield--full">
+                            <label className="cr-array-subfield-label">key benefits (one per line)</label>
+                            <textarea
+                              className="cr-array-subfield-input"
+                              rows={3}
+                              value={((editForm.featured_content?.key_benefits) || []).join('\n')}
+                              onChange={e => handleFieldChange('featured_content', {
+                                ...(editForm.featured_content || {}),
+                                key_benefits: e.target.value.split('\n').filter(Boolean),
+                              })}
+                              placeholder="One benefit per line"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : isComplexArrayField(activeChangeField) ? (
                     <div className="cr-visual-array-editor">
                       {getArrayVal(activeChangeField).map((item, idx) => (
                         <div key={idx} className="cr-array-item-card">
@@ -2864,7 +3013,7 @@ export default function ChangeRequests() {
                         + Add New {getFieldLabel(activeChangeField).slice(0, -1) || 'Item'}
                       </button>
                     </div>
-                  ) : ORG_DETAILS_IMAGE_FIELDS.has(activeChangeField) || activeChangeField === 'image_url' ? (
+                  ) : ORG_DETAILS_IMAGE_FIELDS.has(activeChangeField) || PERSON_IMAGE_FIELDS.has(activeChangeField) ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {getPropVal(activeChangeField) && (
                         <img src={getPropVal(activeChangeField)} alt="proposed" style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 6, objectFit: 'cover' }} />
